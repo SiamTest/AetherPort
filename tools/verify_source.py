@@ -17,6 +17,11 @@ for marker in ['private fun GitHubScreen', 'private fun HuggingFaceScreen', 'pri
 assert 'Small bug fixes' in ui
 assert 'Saved GitHub variable' not in ui
 
+# Compose 1.8+ exposes weight through RowScope/ColumnScope. Importing the
+# internal layout weight symbol causes compileDebugKotlin to fail.
+assert 'import androidx.compose.foundation.layout.weight' not in ui
+assert 'Modifier.weight(1f)' in ui
+
 repo = (root / "app/src/main/java/com/forgeport/android/repo/RepositoryService.kt").read_text()
 assert 'Small bug fixes' in repo
 assert 'resolveGitHubToken' in repo
@@ -32,7 +37,7 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha03"' in build
+assert 'versionName = "3.0.0-alpha04"' in build
 assert 'compileSdk = 36' in build
 print("source verification: OK")
 

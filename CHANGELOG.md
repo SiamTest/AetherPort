@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-alpha04
+
+- Fixed `compileDebugKotlin` failure in `ForgePortApp.kt` caused by importing Compose's internal `androidx.compose.foundation.layout.weight` symbol.
+- `Modifier.weight(...)` now resolves from the surrounding `RowScope`/`ColumnScope`, which is the supported Compose API usage.
+- Added a source-verification regression check so the invalid import cannot be reintroduced.
+
 ## 3.0.0-alpha03
 
 - Fixed GitHub Actions Android SDK setup after Google removed the legacy `tools` SDK package.

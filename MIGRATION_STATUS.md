@@ -29,6 +29,7 @@
 - GitHub Actions now verifies and builds the native Android app automatically.
 - Android SDK setup uses `android-actions/setup-android@v4` and no longer requests the removed legacy `tools` package.
 - Successful runs publish a debug APK and SHA-256 checksum as workflow artifacts.
+- Compose `Modifier.weight(...)` is used through `RowScope`/`ColumnScope`; the internal `layout.weight` import is explicitly blocked by source verification.
 - No hosting service is involved in the app build.
 
 ## Production hardening still recommended
