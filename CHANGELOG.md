@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-alpha03
+
+- Fixed GitHub Actions Android SDK setup after Google removed the legacy `tools` SDK package.
+- Upgraded `android-actions/setup-android` from v3 to v4.
+- Explicitly installs only `platform-tools` during SDK setup, then installs Android 36 platform and build-tools with `sdkmanager`.
+- Removed the redundant second license-acceptance command from the workflow.
+
 ## 3.0.0-alpha02
 
 - Added GitHub Actions Android CI for pushes, pull requests, and manual runs.

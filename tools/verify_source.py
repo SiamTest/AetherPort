@@ -32,7 +32,7 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha02"' in build
+assert 'versionName = "3.0.0-alpha03"' in build
 assert 'compileSdk = 36' in build
 print("source verification: OK")
 
@@ -40,7 +40,8 @@ workflow = (root / ".github/workflows/build-android.yml").read_text()
 for marker in [
     "actions/checkout@v4",
     "actions/setup-java@v4",
-    "android-actions/setup-android@v3",
+    "android-actions/setup-android@v4",
+    'packages: "platform-tools"',
     "gradle/actions/setup-gradle@v4",
     "testDebugUnitTest",
     "lintDebug",
@@ -48,3 +49,6 @@ for marker in [
     "actions/upload-artifact@v4",
 ]:
     assert marker in workflow
+
+assert 'sdkmanager tools' not in workflow
+assert '"tools"' not in workflow
