@@ -4,7 +4,7 @@
 
 | Hosted ForgePort component | Android implementation |
 | --- | --- |
-| FastAPI HTML UI | Jetpack Compose |
+| FastAPI HTML UI | Native Kotlin + Jetpack Compose Material 3 |
 | Turso variables | Android Keystore encrypted local variables |
 | Server temporary workspace | App-private staged-project storage |
 | Server `git` subprocesses | JGit |
@@ -24,19 +24,25 @@
 - GitHub and Hugging Face operations use staged projects.
 - Google OAuth can export `token.pickle` and `token.json`.
 
-## Build automation
+## Android UI and identity
 
-- GitHub Actions now verifies and builds the native Android app automatically.
-- Android SDK setup uses `android-actions/setup-android@v4` and no longer requests the removed legacy `tools` package.
-- Successful runs publish a debug APK and SHA-256 checksum as workflow artifacts.
-- Compose `Modifier.weight(...)` is used through `RowScope`/`ColumnScope`; the internal `layout.weight` import is explicitly blocked by source verification.
-- No hosting service is involved in the app build.
+- Material 3 color system, shapes, centered app bar, navigation drawer, tonal actions, elevated cards, and Material icons are used throughout.
+- ForgePort now includes its own adaptive launcher icon, round icon, monochrome icon, legacy icon, and Android 12+ splash treatment.
+- Edge-to-edge Android rendering remains enabled.
+
+## Build and release automation
+
+- GitHub Actions verifies, tests, lints and builds the app automatically.
+- Android SDK setup uses `android-actions/setup-android@v4.0.4` and no legacy `tools` package.
+- Every successful non-PR run automatically publishes or updates a GitHub Release tagged from `versionName` and uploads the APK plus SHA-256 checksum.
+- Alpha/beta/RC versions are marked as GitHub prereleases.
+- Optional release signing uses `ANDROID_KEYSTORE_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Without these secrets the workflow releases the debug APK instead.
+- Compose `Modifier.weight(...)` is used only through `RowScope`/`ColumnScope`; the invalid internal import is blocked by source verification.
 
 ## Production hardening still recommended
 
-- Run Android Gradle/SDK build matrix on API 26, 30, 34, and 36.
+- Configure persistent release signing before treating GitHub APKs as update-compatible production builds.
+- Test on API 26, 30, 34, and 36 real/emulated devices.
 - Test JGit against large repositories and Git LFS repositories.
 - Add operation cancellation and foreground progress for very large clones/uploads.
-- Add WorkManager only where background continuation is actually needed.
-- Add release signing and Play integrity/release configuration.
 - Add instrumentation tests for Storage Access Framework flows.

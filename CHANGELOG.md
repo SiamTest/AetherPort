@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha05
+
+- Reworked the Android interface around Material 3 components, spacing, typography, tonal surfaces, icons, cards, navigation drawer, and centered top app bar.
+- Added a new ForgePort launcher identity with adaptive, round, monochrome, legacy, and Android 12+ splash-screen resources.
+- Added automatic GitHub Releases from the Android build workflow. Pushes to `main`/`master` and manual runs publish the built APK plus SHA-256 checksum under the app version tag.
+- Added optional persistent release signing through GitHub repository secrets. When signing credentials are present the workflow publishes a signed release APK; otherwise it publishes the debug APK so CI remains usable without setup.
+- Preserved local-first project processing, automatic GitHub-token matching, Google OAuth/token export, and `Small bug fixes` as the default commit message.
+
 ## 3.0.0-alpha04
 
 - Fixed `compileDebugKotlin` failure in `ForgePortApp.kt` caused by importing Compose's internal `androidx.compose.foundation.layout.weight` symbol.
@@ -17,7 +25,7 @@
 
 - Added GitHub Actions Android CI for pushes, pull requests, and manual runs.
 - GitHub Actions installs Java 17 and Android SDK 36, verifies source rules, runs unit tests and lint, and builds the debug APK.
-- Build artifacts now include the installable debug APK plus its SHA-256 checksum.
+- Build artifacts include the installable APK plus its SHA-256 checksum.
 
 ## 3.0.0-alpha01
 

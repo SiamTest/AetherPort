@@ -5,5 +5,8 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowSplashScreenBackground">@color/forgeport_logo_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_forgeport_mark</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/forgeport_logo_background</item>
     </style>
 </resources>

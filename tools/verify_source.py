@@ -13,9 +13,13 @@ projects_block = ui.split('private fun ProjectsScreen', 1)[1].split('@Composable
 assert 'StageZipCard' not in projects_block
 for marker in ['private fun GitHubScreen', 'private fun HuggingFaceScreen', 'private fun HfDownloadScreen']:
     block = ui.split(marker, 1)[1]
-    assert 'StageZipCard(vm)' in block[:2500]
+    assert 'StageZipCard(vm)' in block[:3500]
 assert 'Small bug fixes' in ui
 assert 'Saved GitHub variable' not in ui
+assert 'CenterAlignedTopAppBar' in ui
+assert 'ElevatedCard' in ui
+assert 'FilledTonalButton' in ui
+assert 'ic_forgeport_mark' in ui
 
 # Compose 1.8+ exposes weight through RowScope/ColumnScope. Importing the
 # internal layout weight symbol causes compileDebugKotlin to fail.
@@ -37,23 +41,39 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha04"' in build
+assert 'versionName = "3.0.0-alpha05"' in build
+assert 'versionCode = 3000005' in build
 assert 'compileSdk = 36' in build
-print("source verification: OK")
+assert 'androidx.compose.material3:material3' in build
+assert 'material-icons-extended' in build
+
+manifest = (root / "app/src/main/AndroidManifest.xml").read_text()
+assert 'android:icon="@mipmap/ic_launcher"' in manifest
+assert 'android:roundIcon="@mipmap/ic_launcher_round"' in manifest
+for resource in [
+    'app/src/main/res/drawable/ic_forgeport_mark.xml',
+    'app/src/main/res/mipmap-anydpi/ic_launcher.xml',
+    'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+]:
+    assert (root / resource).is_file(), resource
 
 workflow = (root / ".github/workflows/build-android.yml").read_text()
 for marker in [
     "actions/checkout@v4",
     "actions/setup-java@v4",
-    "android-actions/setup-android@v4",
+    "android-actions/setup-android@v4.0.4",
     'packages: "platform-tools"',
     "gradle/actions/setup-gradle@v4",
     "testDebugUnitTest",
     "lintDebug",
     "assembleDebug",
+    "assembleRelease",
     "actions/upload-artifact@v4",
+    "gh release create",
+    "contents: write",
 ]:
     assert marker in workflow
-
 assert 'sdkmanager tools' not in workflow
 assert '"tools"' not in workflow
+
+print("source verification: OK")

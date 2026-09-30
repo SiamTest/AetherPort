@@ -1,4 +1,4 @@
-name: Build Android App
+name: Build and Release Android
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
       - master
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build:
-    name: Test and build APK
+    name: Test, build and release APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -37,7 +37,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v4.0.4
         with:
           packages: "platform-tools"
           log-accepted-android-sdk-licenses: false
@@ -58,25 +58,90 @@ jobs:
       - name: Run unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
 
-      - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
+      - name: Configure optional release signing
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_STORE_PASSWORD" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEY_PASSWORD" ]]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/forgeport-release.jks"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          else
+            echo "SIGNED_BUILD=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        shell: bash
+        env:
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ "${SIGNED_BUILD:-false}" == "true" ]]; then
+            ./gradlew --no-daemon assembleRelease
+            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+          else
+            ./gradlew --no-daemon assembleDebug
+            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+          fi
 
       - name: Prepare APK artifact
         shell: bash
         run: |
           set -euo pipefail
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          test -n "$VERSION_NAME"
+          APK="$(find "app/build/outputs/apk/${BUILD_TYPE}" -maxdepth 1 -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
           mkdir -p dist
-          cp "$APK" "dist/ForgePort-Android-${GITHUB_SHA::7}-debug.apk"
-          sha256sum "dist/ForgePort-Android-${GITHUB_SHA::7}-debug.apk" > "dist/ForgePort-Android-${GITHUB_SHA::7}-debug.apk.sha256"
+          if [[ "$BUILD_TYPE" == "release" ]]; then
+            OUTPUT="dist/ForgePort-Android-${VERSION_NAME}.apk"
+          else
+            OUTPUT="dist/ForgePort-Android-${VERSION_NAME}-debug.apk"
+          fi
+          cp "$APK" "$OUTPUT"
+          sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "APK_OUTPUT=$OUTPUT" >> "$GITHUB_ENV"
 
-      - name: Upload APK
+      - name: Upload workflow APK
         uses: actions/upload-artifact@v4
         with:
-          name: ForgePort-Android-debug-${{ github.run_number }}
+          name: ForgePort-Android-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/*.sha256
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PRERELEASE_ARGS=()
+          case "$VERSION_NAME" in
+            *alpha*|*beta*|*rc*) PRERELEASE_ARGS+=(--prerelease) ;;
+          esac
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              dist/*.apk dist/*.sha256 \
+              --target "$GITHUB_SHA" \
+              --title "ForgePort Android $VERSION_NAME" \
+              --generate-notes \
+              "${PRERELEASE_ARGS[@]}"
+          fi

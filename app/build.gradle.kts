@@ -12,8 +12,8 @@ android {
         applicationId = "com.forgeport.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3000004
-        versionName = "3.0.0-alpha04"
+        versionCode = 3000005
+        versionName = "3.0.0-alpha05"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -32,6 +32,28 @@ android {
         jvmTarget = "17"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_STORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank() && file(keystorePath).isFile) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     packaging {
         resources.excludes += setOf(
             "META-INF/DEPENDENCIES",
@@ -48,6 +70,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")

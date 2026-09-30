@@ -2,64 +2,78 @@
 
 Native, local-first Android port of ForgePort.
 
-**Version:** 3.0.0-alpha04  
+**Version:** 3.0.0-alpha05  
 **Package:** `com.forgeport.android`  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
 
-## What changed
+## Local-first architecture
 
-ForgePort no longer needs a hosted FastAPI service, Turso, Railway, Render, Koyeb, Hugging Face Spaces, or any other ForgePort server. The Android app uses the phone's private storage, CPU, RAM, Android Keystore, system document picker, browser, and network connection.
+ForgePort does not require a hosted ForgePort server. Project staging, ZIP work, variables, Git operations, and Google OAuth token generation run on the Android device. Internet access is only needed when a selected feature talks to GitHub, Hugging Face, or Google.
 
-The old server login/admin model is intentionally not part of the native app. The device itself is the local workspace boundary.
-
-## Implemented in this first native milestone
-
-- Jetpack Compose Android UI with Overview, Projects, GitHub, Hugging Face, HF Download, Google OAuth, and Variables sections.
-- `Projects` contains only **Your staged projects**; it does not contain a ZIP uploader.
+- Jetpack Compose **Material 3** interface.
+- `Projects` contains only **Your staged projects**.
 - **Upload project ZIP** is available in GitHub, Hugging Face, and HF Download.
-- ZIP staging uses the Android Storage Access Framework and extracts into app-private storage.
-- ZIP safety limits: 500 MB compressed, 1.2 GB extracted, 25,000 entries, and canonical path traversal blocking.
-- Staged projects persist locally until the user deletes them.
-- Variables are encrypted with AES-GCM using a key generated and held by Android Keystore.
-- GitHub token detection follows `GITHUB_TOKEN_<OWNER>` and falls back only when there is exactly one saved `GITHUB_TOKEN...` variable.
-- GitHub publishing uses pure-Java JGit locally; no shell `git` binary or ForgePort backend is required.
-- Hugging Face Space publishing uses JGit locally.
-- Hugging Face Space download clones locally, removes `.git`, creates a clean ZIP, and saves through Android's document picker.
-- GitHub and Hugging Face commit message defaults to **Small bug fixes** and also falls back to that text if the field is cleared.
-- Google OAuth uses a Desktop OAuth `credentials.json`, opens the system browser, receives the callback on a local `127.0.0.1` port, exchanges the code locally, and offers both `token.pickle` and `token.json`.
-- `token.pickle` reconstructs `google.oauth2.credentials.Credentials` and deliberately stores no access token so google-auth refreshes immediately from the refresh token on first use.
-- No credentials are sent to a ForgePort server.
+- ZIPs are extracted into app-private storage with traversal and size checks.
+- Variables are encrypted with Android Keystore-backed AES-GCM.
+- GitHub publishing automatically resolves `GITHUB_TOKEN_<OWNER>` from the repository owner.
+- GitHub and Hugging Face repository operations use JGit locally.
+- Commit message defaults/falls back to **Small bug fixes**.
+- Google OAuth uses a Desktop OAuth `credentials.json`, local `127.0.0.1` callback, offline access, and exports `token.pickle` / `token.json`.
+- ForgePort has its own adaptive, round, monochrome, legacy, and Android 12+ splash logo resources.
 
-## Build
+## Build locally
 
-Open the project in Android Studio and let Gradle sync, or run:
+Open the project in Android Studio or run:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-The included lightweight `gradlew` bootstrap downloads Gradle 8.11.1 on first use. Android SDK 36 and JDK 17 are required.
+The lightweight `gradlew` bootstrap downloads Gradle 8.11.1 on first use. Android SDK 36 and JDK 17 are required.
 
-### GitHub Actions
+## GitHub Actions: build + automatic release
 
-`.github/workflows/build-android.yml` builds the Android app automatically on pushes to `main`/`master`, pull requests, and manual workflow runs. The workflow installs Java 17 and Android SDK 36, verifies the source rules, runs unit tests and lint, builds a debug APK, calculates its SHA-256 hash, and uploads both files as a GitHub Actions artifact for 30 days. It uses `android-actions/setup-android@v4` with only `platform-tools`, avoiding the removed legacy Android SDK `tools` package. The Compose UI also avoids importing the internal `layout.weight` symbol; `Modifier.weight(...)` is resolved from `RowScope`/`ColumnScope` as required by the current Compose libraries.
+`.github/workflows/build-android.yml` runs on pushes to `main` / `master`, pull requests, and manual workflow runs.
 
-To download a build, open **GitHub → Actions → Build Android App → the completed run → Artifacts**. No repository secrets are required for the debug build.
+It:
 
-Release APK/AAB signing is intentionally not preconfigured. Add your own signing configuration before publishing to Google Play.
+1. sets up Java 17 and Android SDK 36;
+2. runs `tools/verify_source.py`;
+3. runs `testDebugUnitTest` and `lintDebug`;
+4. builds an APK;
+5. creates a SHA-256 checksum;
+6. uploads the APK as a workflow artifact; and
+7. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha05`).
+
+Alpha, beta and RC versions are marked as prereleases automatically.
+
+### Optional persistent release signing
+
+For an update-compatible signed release APK, add these GitHub repository secrets:
+
+```text
+ANDROID_KEYSTORE_BASE64
+ANDROID_STORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+`ANDROID_KEYSTORE_BASE64` is the Base64 form of your `.jks` / keystore file. When all four values are present the workflow runs `assembleRelease` and publishes the signed release APK. When they are absent, CI still succeeds and publishes the debug APK instead.
+
+Do not use a disposable signing key for production installs. Android requires future updates to be signed with the same key.
 
 ## Google OAuth / token.pickle
 
 1. In Google Cloud, create an OAuth client of type **Desktop app**.
 2. Download its `credentials.json`.
-3. In ForgePort Android, open **Google OAuth**.
+3. Open **Google OAuth** in ForgePort Android.
 4. Choose `credentials.json` and authorize in the system browser.
-5. Return to ForgePort and save `token.pickle` and/or `token.json`.
+5. Save `token.pickle` and/or `token.json`.
 
-The flow requests offline access and explicit consent. For long-lived refresh access, configure the OAuth consent screen appropriately (for example, move an external app out of Testing when ready). Google still controls refresh-token validity and can revoke a token.
+The flow requests offline access and explicit consent. `token.pickle` is generated for Python projects that load `google.oauth2.credentials.Credentials` using `pickle.load()` and is designed to refresh through the saved refresh token on first use.
 
-The exported pickle is designed for Python projects which load `google.oauth2.credentials.Credentials` with `pickle.load()`. Its access token and expiry are intentionally `None`; this causes google-auth to refresh immediately from the exported refresh token rather than embedding a one-hour access token into the file.
+Google controls refresh-token validity and can revoke tokens. Configure the OAuth consent screen appropriately for long-lived use.
 
 ## GitHub variables
 
@@ -70,15 +84,11 @@ Repository: https://github.com/chowdhury-siam/example
 Variable:   GITHUB_TOKEN_CHOWDHURY_SIAM
 ```
 
-There is no GitHub token selector on the GitHub publishing page. ForgePort detects the token from the repository owner.
+There is no GitHub token selector on the GitHub publishing page. ForgePort matches the token automatically from the repository owner.
 
 ## Local-data security
 
-- Project ZIPs and extracted projects live in app-private storage.
+- Staged projects live in app-private storage.
 - Saved variable values are encrypted using Android Keystore-backed AES-GCM.
-- Google client credentials and generated Google tokens are kept in memory for the active generation flow and are exported only to the user-selected destination.
-- No broad storage permission is requested; file access goes through the system picker.
-
-## Current migration boundary
-
-This is the first native conversion milestone. The core repository-transfer workflow is implemented locally. Before a production release, the Android build should be exercised on real devices against test GitHub/Hugging Face repositories and a real Google Desktop OAuth client, then release signing, UI polish, retry/cancellation behavior, and instrumentation tests should be added.
+- Google client credentials and generated tokens are not sent to a ForgePort server.
+- File access uses Android's document picker rather than broad storage permissions.

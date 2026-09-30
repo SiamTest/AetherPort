@@ -13,21 +13,39 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -35,12 +53,11 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +67,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -60,21 +79,22 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.forgeport.android.ForgePortViewModel
+import com.forgeport.android.R
 import com.forgeport.android.model.StagedProject
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
-private data class Destination(val route: String, val title: String)
+private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 private val destinations = listOf(
-    Destination("home", "Overview"),
-    Destination("projects", "Projects"),
-    Destination("github", "GitHub"),
-    Destination("huggingface", "Hugging Face"),
-    Destination("download", "HF Download"),
-    Destination("google", "Google OAuth"),
-    Destination("variables", "Variables"),
+    Destination("home", "Overview", Icons.Filled.Home),
+    Destination("projects", "Projects", Icons.Filled.Folder),
+    Destination("github", "GitHub", Icons.Filled.Code),
+    Destination("huggingface", "Hugging Face", Icons.Filled.CloudUpload),
+    Destination("download", "HF Download", Icons.Filled.CloudDownload),
+    Destination("google", "Google OAuth", Icons.Filled.Key),
+    Destination("variables", "Variables", Icons.Filled.Security),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,13 +111,35 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Column(Modifier.padding(20.dp)) {
-                    Text("ForgePort", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Local Android workspace", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(52.dp),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_forgeport_mark),
+                                contentDescription = null,
+                                modifier = Modifier.size(34.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    Column {
+                        Text("ForgePort", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Local Android workspace", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
                 destinations.forEach { item ->
                     NavigationDrawerItem(
+                        icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.title) },
                         selected = currentRoute == item.route,
                         onClick = {
@@ -108,18 +150,23 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                                 restoreState = true
                             }
                         },
+                        modifier = Modifier.padding(horizontal = 12.dp),
                     )
                 }
             }
         },
     ) {
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                TopAppBar(
-                    title = { Text(title) },
+                CenterAlignedTopAppBar(
+                    title = { Text(title, fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
-                        TextButton(onClick = { scope.launch { drawerState.open() } }) { Text("Menu") }
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Open navigation")
+                        }
                     },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
             },
         ) { padding ->
@@ -134,12 +181,22 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                     composable("variables") { VariablesScreen(vm) }
                 }
                 if (vm.busy) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Card { Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.width(28.dp))
-                            Spacer(Modifier.width(16.dp))
-                            Text("Working locally…")
-                        } }
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            ElevatedCard {
+                                Row(
+                                    Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                                    Text("Working locally…", style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -150,47 +207,92 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
 @Composable
 private fun ScreenColumn(vm: ForgePortViewModel, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         vm.statusMessage?.let {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                    Text(it)
+            ElevatedCard(
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(it, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     if (vm.operationLog.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
-                        Text(vm.operationLog, style = MaterialTheme.typography.bodySmall)
+                        Text(vm.operationLog, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
-                    TextButton(onClick = vm::clearStatus) { Text("Dismiss") }
+                    TextButton(onClick = vm::clearStatus, modifier = Modifier.align(Alignment.End)) { Text("Dismiss") }
                 }
             }
         }
         content()
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, description: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
 private fun HomeScreen(vm: ForgePortViewModel, open: (String) -> Unit) {
     ScreenColumn(vm) {
-        Text("ForgePort now runs on this device. Projects, variables, ZIP processing, and repository operations use local Android resources.")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(vm.projects.size.toString(), "Staged projects", Modifier.weight(1f))
-            StatCard(vm.variables.size.toString(), "Saved variables", Modifier.weight(1f))
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_forgeport_mark),
+                    contentDescription = null,
+                    modifier = Modifier.size(54.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(Modifier.weight(1f)) {
+                    Text("Local-first project tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Stage, package and publish projects directly from this device. ForgePort itself needs no hosting.",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(vm.projects.size.toString(), "Staged projects", Icons.Filled.Folder, Modifier.weight(1f))
+            StatCard(vm.variables.size.toString(), "Saved variables", Icons.Filled.Security, Modifier.weight(1f))
+        }
+        SectionHeader("Workspace")
         val cards = listOf(
-            Triple("Projects", "Review locally staged ZIP projects.", "projects"),
-            Triple("GitHub", "Publish a staged project with an automatically matched GitHub token.", "github"),
-            Triple("Hugging Face", "Publish a staged project to a Space repository.", "huggingface"),
+            Triple("Projects", "Review projects already staged on this device.", "projects"),
+            Triple("GitHub", "Publish with an automatically matched repository-owner token.", "github"),
+            Triple("Hugging Face", "Publish a staged project directly to a Space repository.", "huggingface"),
             Triple("HF Download", "Create a clean ZIP snapshot from a Space branch.", "download"),
-            Triple("Google OAuth", "Generate token.pickle and token.json on the phone.", "google"),
-            Triple("Variables", "Store reusable credentials encrypted with Android Keystore.", "variables"),
+            Triple("Google OAuth", "Generate token.pickle and token.json locally.", "google"),
+            Triple("Variables", "Keep reusable credentials protected by Android Keystore.", "variables"),
         )
         cards.forEach { (name, desc, route) ->
-            Card(onClick = { open(route) }) {
-                Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                    Text(name, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(desc, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val icon = destinations.first { it.route == route }.icon
+            ElevatedCard(onClick = { open(route) }) {
+                Row(
+                    Modifier.fillMaxWidth().padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.padding(12.dp).size(24.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -198,11 +300,12 @@ private fun HomeScreen(vm: ForgePortViewModel, open: (String) -> Unit) {
 }
 
 @Composable
-private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(16.dp)) {
+private fun StatCard(value: String, label: String, icon: ImageVector, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(label, style = MaterialTheme.typography.bodySmall)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -212,12 +315,16 @@ private fun StageZipCard(vm: ForgePortViewModel) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let(vm::stageZip)
     }
-    Card {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Upload project ZIP", fontWeight = FontWeight.Bold)
-            Text("The ZIP is extracted into ForgePort's private app storage.", style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(10.dp))
-            Button(onClick = { launcher.launch(arrayOf("application/zip", "application/octet-stream")) }) {
+    ElevatedCard {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Filled.UploadFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("Upload project ZIP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            Text("The archive is extracted into ForgePort's private app storage.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FilledTonalButton(onClick = { launcher.launch(arrayOf("application/zip", "application/octet-stream")) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.UploadFile, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
                 Text("Choose ZIP")
             }
         }
@@ -229,23 +336,19 @@ private fun ProjectsScreen(vm: ForgePortViewModel) {
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     ScreenColumn(vm) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Your staged projects", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Stored only on this device until you delete them.", style = MaterialTheme.typography.bodySmall)
-            }
-            OutlinedButton(onClick = vm::refreshAll) { Text("Refresh") }
+            SectionHeader("Your staged projects", "Stored only on this device until you delete them.")
+            IconButton(onClick = vm::refreshAll) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh") }
         }
         if (vm.projects.isEmpty()) {
-            Card { Text("No staged projects. Upload a ZIP from GitHub, Hugging Face, or HF Download.", Modifier.padding(16.dp)) }
+            ElevatedCard { Text("No staged projects. Upload a ZIP from GitHub, Hugging Face, or HF Download.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
-            vm.projects.forEach { project ->
-                ProjectCard(project, onDelete = { deleteTarget = project.name })
-            }
+            vm.projects.forEach { project -> ProjectCard(project, onDelete = { deleteTarget = project.name }) }
         }
     }
     deleteTarget?.let { name ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
+            icon = { Icon(Icons.Filled.Delete, contentDescription = null) },
             title = { Text("Delete $name?") },
             text = { Text("This removes the local staged project from this device.") },
             confirmButton = { TextButton(onClick = { vm.deleteProject(name); deleteTarget = null }) { Text("Delete") } },
@@ -256,14 +359,17 @@ private fun ProjectsScreen(vm: ForgePortViewModel) {
 
 @Composable
 private fun ProjectCard(project: StagedProject, onDelete: () -> Unit) {
-    Card {
-        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f)) {
-                Text(project.name, fontWeight = FontWeight.Bold)
-                Text("${project.fileCount} files • ${humanBytes(project.totalBytes)}", style = MaterialTheme.typography.bodySmall)
-                Text("Imported ${DateFormat.getDateTimeInstance().format(Date(project.createdAtEpochMs))}", style = MaterialTheme.typography.bodySmall)
+    ElevatedCard {
+        Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+                Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.padding(11.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            TextButton(onClick = onDelete) { Text("Delete") }
+            Column(Modifier.weight(1f)) {
+                Text(project.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("${project.fileCount} files • ${humanBytes(project.totalBytes)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Imported ${DateFormat.getDateTimeInstance().format(Date(project.createdAtEpochMs))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete project") }
         }
     }
 }
@@ -271,13 +377,10 @@ private fun ProjectCard(project: StagedProject, onDelete: () -> Unit) {
 @Composable
 private fun ProjectPicker(projects: List<StagedProject>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val label = selected.ifBlank { "Select staged project" }
     Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(selected.ifBlank { "Select staged project" }) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            projects.forEach { project ->
-                DropdownMenuItem(text = { Text(project.name) }, onClick = { onSelected(project.name); expanded = false })
-            }
+            projects.forEach { project -> DropdownMenuItem(text = { Text(project.name) }, onClick = { onSelected(project.name); expanded = false }) }
         }
     }
 }
@@ -286,9 +389,7 @@ private fun ProjectPicker(projects: List<StagedProject>, selected: String, onSel
 private fun TokenPicker(names: List<String>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(selected.ifBlank { "Select saved HF token" })
-        }
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(selected.ifBlank { "Select saved HF token" }) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             names.forEach { name -> DropdownMenuItem(text = { Text(name) }, onClick = { onSelected(name); expanded = false }) }
         }
@@ -304,22 +405,18 @@ private fun GitHubScreen(vm: ForgePortViewModel) {
     var targetPath by remember { mutableStateOf("") }
     var unwrap by remember { mutableStateOf(true) }
     LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
-
     ScreenColumn(vm) {
         StageZipCard(vm)
-        Text("Publish a staged project", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        SectionHeader("Publish to GitHub", "The repository-owner token is matched automatically from Variables.")
         ProjectPicker(vm.projects, project) { project = it }
-        OutlinedTextField(repo, { repo = it }, label = { Text("GitHub repository") }, placeholder = { Text("username/repository") }, modifier = Modifier.fillMaxWidth())
-        Text("Token is detected automatically from GITHUB_TOKEN_<OWNER> in Variables.", style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(repo, { repo = it }, label = { Text("GitHub repository") }, placeholder = { Text("username/repository") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         CheckRow("Remove one outer wrapper folder", unwrap) { unwrap = it }
-        Button(
-            onClick = { vm.publishGitHub(project, repo, branch, commit, unwrap, targetPath) },
-            enabled = project.isNotBlank() && repo.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Publish to GitHub") }
+        Button(onClick = { vm.publishGitHub(project, repo, branch, commit, unwrap, targetPath) }, enabled = project.isNotBlank() && repo.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.Code, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Publish to GitHub")
+        }
     }
 }
 
@@ -334,22 +431,19 @@ private fun HuggingFaceScreen(vm: ForgePortViewModel) {
     var token by remember { mutableStateOf("") }
     LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
     LaunchedEffect(vm.hfTokenNames) { if (token.isBlank()) token = vm.hfTokenNames.firstOrNull().orEmpty() }
-
     ScreenColumn(vm) {
         StageZipCard(vm)
-        Text("Publish a staged project", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        SectionHeader("Publish to Hugging Face", "Push a staged project directly to a Space repository.")
         ProjectPicker(vm.projects, project) { project = it }
-        OutlinedTextField(repo, { repo = it }, label = { Text("Hugging Face Space") }, placeholder = { Text("username/repository") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(repo, { repo = it }, label = { Text("Hugging Face Space") }, placeholder = { Text("username/repository") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         TokenPicker(vm.hfTokenNames, token) { token = it }
-        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         CheckRow("Remove one outer wrapper folder", unwrap) { unwrap = it }
-        Button(
-            onClick = { vm.publishHuggingFace(project, repo, token, branch, commit, unwrap, targetPath) },
-            enabled = project.isNotBlank() && repo.isNotBlank() && token.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Publish to Hugging Face") }
+        Button(onClick = { vm.publishHuggingFace(project, repo, token, branch, commit, unwrap, targetPath) }, enabled = project.isNotBlank() && repo.isNotBlank() && token.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.CloudUpload, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Publish to Hugging Face")
+        }
     }
 }
 
@@ -362,28 +456,18 @@ private fun HfDownloadScreen(vm: ForgePortViewModel) {
     LaunchedEffect(vm.hfTokenNames) { if (token.isBlank()) token = vm.hfTokenNames.firstOrNull().orEmpty() }
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val file = vm.pendingHfZip ?: return@rememberLauncherForActivityResult
-        if (uri != null) {
-            scope.launch {
-                runCatching { vm.saveFile(uri, file) }
-                vm.clearPendingHfZip()
-            }
-        }
+        if (uri != null) scope.launch { runCatching { vm.saveFile(uri, file) }; vm.clearPendingHfZip() }
     }
-
     ScreenColumn(vm) {
         StageZipCard(vm)
-        Text("Download repository snapshot", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        OutlinedTextField(repo, { repo = it }, label = { Text("Hugging Face Space") }, placeholder = { Text("username/repository") }, modifier = Modifier.fillMaxWidth())
+        SectionHeader("HF Download", "Create a clean ZIP snapshot from a Space branch.")
+        OutlinedTextField(repo, { repo = it }, label = { Text("Hugging Face Space") }, placeholder = { Text("username/repository") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         TokenPicker(vm.hfTokenNames, token) { token = it }
-        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
-        Button(
-            onClick = { vm.prepareHfDownload(repo, token, branch) },
-            enabled = repo.isNotBlank() && token.isNotBlank(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Prepare ZIP snapshot") }
-        vm.pendingHfZip?.let { file ->
-            Button(onClick = { saveLauncher.launch(file.name) }, modifier = Modifier.fillMaxWidth()) { Text("Save ${file.name}") }
+        OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { vm.prepareHfDownload(repo, token, branch) }, enabled = repo.isNotBlank() && token.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.CloudDownload, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Prepare ZIP snapshot")
         }
+        vm.pendingHfZip?.let { file -> OutlinedButton(onClick = { saveLauncher.launch(file.name) }, modifier = Modifier.fillMaxWidth()) { Text("Save ${file.name}") } }
     }
 }
 
@@ -391,9 +475,7 @@ private fun HfDownloadScreen(vm: ForgePortViewModel) {
 private fun GoogleOAuthScreen(vm: ForgePortViewModel) {
     var scopes by remember { mutableStateOf("https://www.googleapis.com/auth/drive") }
     val coroutineScope = rememberCoroutineScope()
-    val credentialsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { vm.generateGoogleTokens(it, scopes) }
-    }
+    val credentialsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.generateGoogleTokens(it, scopes) } }
     val savePickle = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val bytes = vm.googleTokenBundle?.tokenPickle ?: return@rememberLauncherForActivityResult
         uri?.let { coroutineScope.launch { vm.saveBytes(it, bytes) } }
@@ -402,20 +484,21 @@ private fun GoogleOAuthScreen(vm: ForgePortViewModel) {
         val bytes = vm.googleTokenBundle?.tokenJson ?: return@rememberLauncherForActivityResult
         uri?.let { coroutineScope.launch { vm.saveBytes(it, bytes) } }
     }
-
     ScreenColumn(vm) {
-        Text("Generate Google Drive credentials locally", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Use credentials.json from a Google OAuth Desktop application client. ForgePort opens the system browser and receives Google's callback on 127.0.0.1, matching the InstalledAppFlow style used by generate_drive_token.py.")
+        SectionHeader("Google OAuth", "Generate Google Drive credentials locally using a Desktop OAuth client.")
+        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Text("ForgePort opens the system browser and receives Google's callback on 127.0.0.1, matching the InstalledAppFlow-style desktop flow.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         OutlinedTextField(scopes, { scopes = it }, label = { Text("Scopes") }, modifier = Modifier.fillMaxWidth())
         Button(onClick = { credentialsPicker.launch(arrayOf("application/json", "text/json", "text/plain")) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Choose credentials.json and authorize")
+            Icon(Icons.Filled.Key, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Choose credentials.json and authorize")
         }
-        Text("For long-term refresh tokens, publish the OAuth consent screen to Production. Google can still revoke a refresh token, so no app can guarantee permanent validity.", style = MaterialTheme.typography.bodySmall)
+        Text("For long-lived refresh access, configure the OAuth consent screen appropriately. Google can still revoke refresh tokens.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         vm.googleTokenBundle?.let {
-            Card {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Credentials ready", fontWeight = FontWeight.Bold)
-                    Text("token.pickle is exported as a google.oauth2.credentials.Credentials pickle with the refresh token and forces google-auth to refresh on first use.", style = MaterialTheme.typography.bodySmall)
+            ElevatedCard {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Credentials ready", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("token.pickle stores the refresh credentials and lets google-auth refresh the access token on first use.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = { savePickle.launch("token.pickle") }, modifier = Modifier.fillMaxWidth()) { Text("Save token.pickle") }
                     OutlinedButton(onClick = { saveJson.launch("token.json") }, modifier = Modifier.fillMaxWidth()) { Text("Save token.json") }
                 }
@@ -429,33 +512,22 @@ private fun VariablesScreen(vm: ForgePortViewModel) {
     var name by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
     ScreenColumn(vm) {
-        Text("Encrypted local variables", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Values are encrypted with an AES key held by Android Keystore. They are not uploaded to a ForgePort server.")
-        OutlinedTextField(name, { name = it }, label = { Text("Variable name") }, placeholder = { Text("GITHUB_TOKEN_USERNAME") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            value,
-            { value = it },
-            label = { Text("Value") },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions.Default,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(
-            onClick = { vm.saveVariable(name, value); value = "" },
-            enabled = name.isNotBlank() && value.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Save variable") }
+        SectionHeader("Variables", "Values are encrypted locally with Android Keystore.")
+        OutlinedTextField(name, { name = it }, label = { Text("Variable name") }, placeholder = { Text("GITHUB_TOKEN_USERNAME") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value, { value = it }, label = { Text("Value") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions.Default, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { vm.saveVariable(name, value); value = "" }, enabled = name.isNotBlank() && value.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Save variable") }
         if (vm.variables.isEmpty()) {
-            Card { Text("No saved variables.", Modifier.padding(16.dp)) }
+            ElevatedCard { Text("No saved variables.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             vm.variables.forEach { variable ->
-                Card {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                ElevatedCard {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(Icons.Filled.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Column(Modifier.weight(1f)) {
-                            Text(variable.name, fontWeight = FontWeight.Bold)
-                            Text(variable.maskedValue, style = MaterialTheme.typography.bodySmall)
+                            Text(variable.name, fontWeight = FontWeight.SemiBold)
+                            Text(variable.maskedValue, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        TextButton(onClick = { vm.deleteVariable(variable.name) }) { Text("Delete") }
+                        IconButton(onClick = { vm.deleteVariable(variable.name) }) { Icon(Icons.Filled.Delete, contentDescription = "Delete variable") }
                     }
                 }
             }
@@ -465,9 +537,11 @@ private fun VariablesScreen(vm: ForgePortViewModel) {
 
 @Composable
 private fun CheckRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = checked, onCheckedChange = onChecked)
-        Text(label)
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = checked, onCheckedChange = onChecked)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -476,9 +550,6 @@ private fun humanBytes(bytes: Long): String {
     val units = arrayOf("KB", "MB", "GB")
     var value = bytes.toDouble()
     var index = -1
-    while (value >= 1024 && index < units.lastIndex) {
-        value /= 1024.0
-        index++
-    }
+    while (value >= 1024 && index < units.lastIndex) { value /= 1024.0; index++ }
     return "%.1f %s".format(value, units[index])
 }
