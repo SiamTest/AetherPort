@@ -24,6 +24,12 @@
 - GitHub and Hugging Face operations use staged projects.
 - Google OAuth can export `token.pickle` and `token.json`.
 
+## Build automation
+
+- GitHub Actions now verifies and builds the native Android app automatically.
+- Successful runs publish a debug APK and SHA-256 checksum as workflow artifacts.
+- No hosting service is involved in the app build.
+
 ## Production hardening still recommended
 
 - Run Android Gradle/SDK build matrix on API 26, 30, 34, and 36.

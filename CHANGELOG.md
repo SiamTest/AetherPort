@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-alpha02
+
+- Added GitHub Actions Android CI for pushes, pull requests, and manual runs.
+- GitHub Actions installs Java 17 and Android SDK 36, verifies source rules, runs unit tests and lint, and builds the debug APK.
+- Build artifacts now include the installable debug APK plus its SHA-256 checksum.
+
 ## 3.0.0-alpha01
 
 - Started native Kotlin/Jetpack Compose conversion from ForgePort 2.1.6.

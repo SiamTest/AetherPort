@@ -2,7 +2,7 @@
 
 Native, local-first Android port of ForgePort.
 
-**Version:** 3.0.0-alpha01  
+**Version:** 3.0.0-alpha02  
 **Package:** `com.forgeport.android`  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -41,7 +41,13 @@ Open the project in Android Studio and let Gradle sync, or run:
 
 The included lightweight `gradlew` bootstrap downloads Gradle 8.11.1 on first use. Android SDK 36 and JDK 17 are required.
 
-Release APK/AAB signing is intentionally not preconfigured. Add your own signing configuration before publishing.
+### GitHub Actions
+
+`.github/workflows/build-android.yml` builds the Android app automatically on pushes to `main`/`master`, pull requests, and manual workflow runs. The workflow installs Java 17 and Android SDK 36, verifies the source rules, runs unit tests and lint, builds a debug APK, calculates its SHA-256 hash, and uploads both files as a GitHub Actions artifact for 30 days.
+
+To download a build, open **GitHub → Actions → Build Android App → the completed run → Artifacts**. No repository secrets are required for the debug build.
+
+Release APK/AAB signing is intentionally not preconfigured. Add your own signing configuration before publishing to Google Play.
 
 ## Google OAuth / token.pickle
 
