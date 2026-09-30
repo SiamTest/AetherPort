@@ -1,0 +1,104 @@
+package com.forgeport.android.data
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import com.forgeport.android.model.SecretVariable
+import com.forgeport.android.repo.RepoParsing
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+
+class VariableStore(context: Context) {
+    private val prefs = context.getSharedPreferences("forgeport_variables_v1", Context.MODE_PRIVATE)
+    private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+
+    fun list(): List<SecretVariable> = prefs.all.keys
+        .filter { it.startsWith(PREFIX) }
+        .map { key -> key.removePrefix(PREFIX) }
+        .sorted()
+        .map { name -> SecretVariable(name, mask(get(name).orEmpty())) }
+
+    fun put(nameRaw: String, value: String) {
+        val name = normalizeName(nameRaw)
+        require(value.isNotEmpty()) { "Variable value cannot be empty." }
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + "." +
+            Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        prefs.edit().putString(PREFIX + name, packed).apply()
+    }
+
+    fun get(nameRaw: String): String? {
+        val name = normalizeName(nameRaw)
+        val packed = prefs.getString(PREFIX + name, null) ?: return null
+        val parts = packed.split('.', limit = 2)
+        if (parts.size != 2) return null
+        val iv = Base64.decode(parts[0], Base64.NO_WRAP)
+        val ciphertext = Base64.decode(parts[1], Base64.NO_WRAP)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+        return cipher.doFinal(ciphertext).toString(Charsets.UTF_8)
+    }
+
+    fun delete(nameRaw: String) {
+        prefs.edit().remove(PREFIX + normalizeName(nameRaw)).apply()
+    }
+
+    fun resolveGitHubToken(repoUrl: String): Pair<String, String>? {
+        val exact = RepoParsing.githubTokenVariableName(repoUrl)
+        get(exact)?.let { return exact to it }
+        val candidates = list().map { it.name }.filter { it.startsWith("GITHUB_TOKEN") }
+        if (candidates.size == 1) {
+            val name = candidates.single()
+            return name to (get(name) ?: return null)
+        }
+        return null
+    }
+
+    fun huggingFaceTokenNames(): List<String> = list().map { it.name }.filter {
+        it.startsWith("HF_TOKEN") || it.startsWith("HUGGINGFACE_TOKEN")
+    }
+
+    private fun secretKey(): SecretKey {
+        val existing = keyStore.getKey(KEY_ALIAS, null) as? SecretKey
+        if (existing != null) return existing
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .build(),
+        )
+        return generator.generateKey()
+    }
+
+    private fun normalizeName(value: String): String {
+        val name = value.trim().uppercase()
+        require(name.matches(Regex("^[A-Z_][A-Z0-9_]{0,127}$"))) {
+            "Variable names may contain A-Z, 0-9, and underscores and cannot start with a number."
+        }
+        return name
+    }
+
+    private fun mask(value: String): String = when {
+        value.isEmpty() -> ""
+        value.length <= 4 -> "••••"
+        value.length <= 8 -> value.take(1) + "••••" + value.takeLast(1)
+        else -> value.take(3) + "••••••" + value.takeLast(3)
+    }
+
+    companion object {
+        private const val PREFIX = "v:"
+        private const val KEY_ALIAS = "forgeport.variables.aes.v1"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+    }
+}
