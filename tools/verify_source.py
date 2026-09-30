@@ -41,8 +41,12 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha05"' in build
-assert 'versionCode = 3000005' in build
+assert 'versionName = "3.0.0-alpha06"' in build
+assert 'versionCode = 3000006' in build
+assert '<item name="android:windowLightNavigationBar">false</item>' not in (root / 'app/src/main/res/values/themes.xml').read_text(), 'API 27-only navigation-bar appearance attribute must not be in the base values theme.'
+app_ui = (root / 'app/src/main/java/com/forgeport/android/ui/ForgePortApp.kt').read_text()
+assert 'androidx.compose.material.icons.filled.ArrowForward' not in app_ui, 'Use the AutoMirrored ArrowForward icon.'
+assert 'Icons.AutoMirrored.Filled.ArrowForward' in app_ui
 assert 'compileSdk = 36' in build
 assert 'androidx.compose.material3:material3' in build
 assert 'material-icons-extended' in build

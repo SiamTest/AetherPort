@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-alpha06
+
+- Fixed Android lint failure on API 26 by removing the API 27-only `android:windowLightNavigationBar` attribute from the base theme. Android 12+ splash/theme resources remain in their API-qualified resource directory.
+- Replaced the deprecated `Icons.Filled.ArrowForward` with the auto-mirrored Material icon.
+- Added source-verification regression checks for both fixes.
+- Bumped Android version code to `3000006`.
+
 ## 3.0.0-alpha05
 
 - Reworked the Android interface around Material 3 components, spacing, typography, tonal surfaces, icons, cards, navigation drawer, and centered top app bar.

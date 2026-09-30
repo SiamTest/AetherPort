@@ -12,8 +12,8 @@ android {
         applicationId = "com.forgeport.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3000005
-        versionName = "3.0.0-alpha05"
+        versionCode = 3000006
+        versionName = "3.0.0-alpha06"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

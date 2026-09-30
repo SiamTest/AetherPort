@@ -2,7 +2,7 @@
 
 Native, local-first Android port of ForgePort.
 
-**Version:** 3.0.0-alpha05  
+**Version:** 3.0.0-alpha06  
 **Package:** `com.forgeport.android`  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -44,7 +44,7 @@ It:
 4. builds an APK;
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
-7. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha05`).
+7. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha06`).
 
 Alpha, beta and RC versions are marked as prereleases automatically.
 
