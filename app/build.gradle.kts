@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val updateGithubRepository = providers.gradleProperty("updateGithubRepository")
+    .getOrElse("Chowdhury-Siam/ForgePort")
+
 android {
     namespace = "com.forgeport.android"
     compileSdk = 36
@@ -12,8 +15,10 @@ android {
         applicationId = "com.forgeport.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3000006
-        versionName = "3.0.0-alpha06"
+        versionCode = 3000007
+        versionName = "3.0.0-alpha07"
+
+        buildConfigField("String", "UPDATE_GITHUB_REPOSITORY", "\"$updateGithubRepository\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -67,6 +72,7 @@ android {
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.05.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")

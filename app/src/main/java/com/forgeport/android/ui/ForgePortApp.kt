@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -47,6 +48,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -68,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -78,9 +81,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.forgeport.android.BuildConfig
 import com.forgeport.android.ForgePortViewModel
 import com.forgeport.android.R
 import com.forgeport.android.model.StagedProject
+import com.forgeport.android.update.UpdateInstaller
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -95,6 +100,7 @@ private val destinations = listOf(
     Destination("download", "HF Download", Icons.Filled.CloudDownload),
     Destination("google", "Google OAuth", Icons.Filled.Key),
     Destination("variables", "Variables", Icons.Filled.Security),
+    Destination("updates", "Updates", Icons.Filled.SystemUpdate),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,6 +112,10 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: "home"
     val title = destinations.firstOrNull { it.route == currentRoute }?.title ?: "ForgePort"
+
+    LaunchedEffect(Unit) {
+        vm.checkForUpdates(silent = true)
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -179,6 +189,7 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                     composable("download") { HfDownloadScreen(vm) }
                     composable("google") { GoogleOAuthScreen(vm) }
                     composable("variables") { VariablesScreen(vm) }
+                    composable("updates") { UpdatesScreen(vm) }
                 }
                 if (vm.busy) {
                     Surface(
@@ -201,6 +212,34 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                 }
             }
         }
+    }
+
+    val promptedUpdate = vm.availableUpdate
+    if (vm.showUpdatePrompt && promptedUpdate != null) {
+        AlertDialog(
+            onDismissRequest = vm::dismissUpdatePrompt,
+            icon = { Icon(Icons.Filled.SystemUpdate, contentDescription = null) },
+            title = { Text("ForgePort ${promptedUpdate.versionName} is available") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("A newer ForgePort release is available on GitHub.")
+                    if (promptedUpdate.notes.isNotBlank()) {
+                        Text(
+                            promptedUpdate.notes.take(420),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.dismissUpdatePrompt()
+                    nav.navigate("updates")
+                }) { Text("Update") }
+            },
+            dismissButton = { TextButton(onClick = vm::dismissUpdatePrompt) { Text("Later") } },
+        )
     }
 }
 
@@ -240,30 +279,6 @@ private fun SectionHeader(title: String, description: String? = null) {
 @Composable
 private fun HomeScreen(vm: ForgePortViewModel, open: (String) -> Unit) {
     ScreenColumn(vm) {
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_forgeport_mark),
-                    contentDescription = null,
-                    modifier = Modifier.size(54.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Column(Modifier.weight(1f)) {
-                    Text("Local-first project tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Stage, package and publish projects directly from this device. ForgePort itself needs no hosting.",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
-        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(vm.projects.size.toString(), "Staged projects", Icons.Filled.Folder, Modifier.weight(1f))
             StatCard(vm.variables.size.toString(), "Saved variables", Icons.Filled.Security, Modifier.weight(1f))
@@ -276,6 +291,7 @@ private fun HomeScreen(vm: ForgePortViewModel, open: (String) -> Unit) {
             Triple("HF Download", "Create a clean ZIP snapshot from a Space branch.", "download"),
             Triple("Google OAuth", "Generate token.pickle and token.json locally.", "google"),
             Triple("Variables", "Keep reusable credentials protected by Android Keystore.", "variables"),
+            Triple("Updates", "Check, download and install new ForgePort releases.", "updates"),
         )
         cards.forEach { (name, desc, route) ->
             val icon = destinations.first { it.route == route }.icon
@@ -528,6 +544,125 @@ private fun VariablesScreen(vm: ForgePortViewModel) {
                             Text(variable.maskedValue, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { vm.deleteVariable(variable.name) }) { Icon(Icons.Filled.Delete, contentDescription = "Delete variable") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdatesScreen(vm: ForgePortViewModel) {
+    val context = LocalContext.current
+    val update = vm.availableUpdate
+    ScreenColumn(vm) {
+        SectionHeader("App updates", "ForgePort checks GitHub Releases automatically when the app opens.")
+
+        ElevatedCard {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Current version", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                Text(BuildConfig.UPDATE_GITHUB_REPOSITORY, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        FilledTonalButton(
+            onClick = { vm.checkForUpdates(silent = false) },
+            enabled = !vm.updateChecking && !vm.updateDownloading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (vm.updateChecking) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Filled.Refresh, contentDescription = null)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(if (vm.updateChecking) "Checking…" else "Check for updates")
+        }
+
+        vm.updateMessage?.let { message ->
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
+                Text(
+                    message,
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+
+        if (update != null) {
+            ElevatedCard {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Version ${update.versionName}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (update.prerelease) "Prerelease" else "Stable release",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (update.apkSizeBytes > 0L) {
+                            Text(humanBytes(update.apkSizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if (update.notes.isNotBlank()) {
+                        Text(update.notes, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    if (vm.updateDownloading) {
+                        if (vm.updateDownloadTotalBytes > 0L) {
+                            LinearProgressIndicator(
+                                progress = { vm.updateDownloadProgress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                "${humanBytes(vm.updateDownloadedBytes)} / ${humanBytes(vm.updateDownloadTotalBytes)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+
+                    val downloaded = vm.downloadedUpdateApk
+                    if (downloaded == null) {
+                        Button(
+                            onClick = vm::downloadUpdate,
+                            enabled = !vm.updateDownloading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (vm.updateDownloading) "Downloading…" else "Download update")
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                runCatching { UpdateInstaller.launch(context, downloaded) }
+                                    .onSuccess { launched ->
+                                        if (!launched) vm.noteInstallerPermissionRequired()
+                                    }
+                                    .onFailure { error ->
+                                        vm.reportUpdateInstallError(error.message ?: "Could not open the Android package installer.")
+                                    }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.SystemUpdate, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Install update")
+                        }
+                        Text(
+                            "The APK was downloaded from the GitHub release and SHA-256 verified when a checksum asset is present.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

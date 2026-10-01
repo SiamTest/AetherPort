@@ -109,6 +109,32 @@ jobs:
           fi
           cp "$APK" "$OUTPUT"
           sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
+          OUTPUT_NAME="$(basename "$OUTPUT")"
+          CHECKSUM_NAME="${OUTPUT_NAME}.sha256"
+          PRERELEASE=false
+          case "$VERSION_NAME" in
+            *alpha*|*beta*|*rc*) PRERELEASE=true ;;
+          esac
+          VERSION_NAME="$VERSION_NAME" OUTPUT_NAME="$OUTPUT_NAME" CHECKSUM_NAME="$CHECKSUM_NAME" PRERELEASE="$PRERELEASE" python3 - <<'PYJSON'
+          import json
+          import os
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          version = os.environ["VERSION_NAME"]
+          tag = f"v{version}"
+          payload = {
+              "version": version,
+              "tag": tag,
+              "repository": repo,
+              "prerelease": os.environ["PRERELEASE"].lower() == "true",
+              "apk": os.environ["OUTPUT_NAME"],
+              "sha256": os.environ["CHECKSUM_NAME"],
+              "apk_url": f"https://github.com/{repo}/releases/download/{tag}/{os.environ['OUTPUT_NAME']}",
+              "sha256_url": f"https://github.com/{repo}/releases/download/{tag}/{os.environ['CHECKSUM_NAME']}",
+          }
+          Path("dist/forgeport-update.json").write_text(json.dumps(payload, indent=2) + "\n")
+          PYJSON
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=v$VERSION_NAME" >> "$GITHUB_ENV"
           echo "APK_OUTPUT=$OUTPUT" >> "$GITHUB_ENV"
@@ -120,6 +146,7 @@ jobs:
           path: |
             dist/*.apk
             dist/*.sha256
+            dist/forgeport-update.json
           if-no-files-found: error
           retention-days: 30
 
@@ -136,10 +163,10 @@ jobs:
           esac
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 --clobber
+            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 dist/forgeport-update.json --clobber
           else
             gh release create "$RELEASE_TAG" \
-              dist/*.apk dist/*.sha256 \
+              dist/*.apk dist/*.sha256 dist/forgeport-update.json \
               --target "$GITHUB_SHA" \
               --title "ForgePort Android $VERSION_NAME" \
               --generate-notes \

@@ -15,6 +15,8 @@ import com.forgeport.android.model.SecretVariable
 import com.forgeport.android.model.StagedProject
 import com.forgeport.android.oauth.GoogleOAuthService
 import com.forgeport.android.repo.RepositoryService
+import com.forgeport.android.update.AppUpdate
+import com.forgeport.android.update.UpdateService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,6 +27,8 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
     private val variableStore = VariableStore(application)
     private val repositoryService = RepositoryService(application, projectStore, variableStore)
     private val googleOAuthService = GoogleOAuthService(application)
+    private val updateService = UpdateService(application)
+    private var startupUpdateCheckDone = false
 
     var projects by mutableStateOf<List<StagedProject>>(emptyList())
         private set
@@ -41,6 +45,24 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
     var pendingHfZip by mutableStateOf<File?>(null)
         private set
     var googleTokenBundle by mutableStateOf<GoogleTokenBundle?>(null)
+        private set
+    var availableUpdate by mutableStateOf<AppUpdate?>(null)
+        private set
+    var updateChecking by mutableStateOf(false)
+        private set
+    var updateDownloading by mutableStateOf(false)
+        private set
+    var updateDownloadProgress by mutableStateOf(0f)
+        private set
+    var updateDownloadedBytes by mutableStateOf(0L)
+        private set
+    var updateDownloadTotalBytes by mutableStateOf(0L)
+        private set
+    var downloadedUpdateApk by mutableStateOf<File?>(null)
+        private set
+    var updateMessage by mutableStateOf<String?>(null)
+        private set
+    var showUpdatePrompt by mutableStateOf(false)
         private set
 
     init {
@@ -173,6 +195,82 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
     fun clearStatus() {
         statusMessage = null
         operationLog = ""
+    }
+
+    fun checkForUpdates(silent: Boolean = false) {
+        if (silent && startupUpdateCheckDone) return
+        if (updateChecking || updateDownloading) return
+        if (silent) startupUpdateCheckDone = true
+        viewModelScope.launch {
+            updateChecking = true
+            if (!silent) updateMessage = "Checking GitHub Releases…"
+            try {
+                val update = withContext(Dispatchers.IO) { updateService.checkForUpdate() }
+                availableUpdate = update
+                if (update == null) {
+                    downloadedUpdateApk = null
+                    showUpdatePrompt = false
+                    if (!silent) updateMessage = "ForgePort is up to date."
+                } else {
+                    downloadedUpdateApk = withContext(Dispatchers.IO) {
+                        updateService.downloadedFile(update).takeIf { updateService.hasCompleteDownload(update) }
+                    }
+                    updateMessage = "ForgePort ${update.versionName} is available."
+                    showUpdatePrompt = silent
+                }
+            } catch (t: Throwable) {
+                if (!silent) updateMessage = t.message ?: "Could not check for updates."
+            } finally {
+                updateChecking = false
+            }
+        }
+    }
+
+    fun downloadUpdate() {
+        val update = availableUpdate ?: return
+        if (updateDownloading) return
+        viewModelScope.launch {
+            updateDownloading = true
+            updateDownloadProgress = 0f
+            updateDownloadedBytes = 0L
+            updateDownloadTotalBytes = update.apkSizeBytes
+            updateMessage = "Downloading ForgePort ${update.versionName}…"
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    updateService.download(update) { downloaded, total ->
+                        viewModelScope.launch {
+                            updateDownloadedBytes = downloaded
+                            updateDownloadTotalBytes = total
+                            updateDownloadProgress = if (total > 0L) {
+                                (downloaded.toDouble() / total.toDouble()).toFloat().coerceIn(0f, 1f)
+                            } else {
+                                0f
+                            }
+                        }
+                    }
+                }
+                downloadedUpdateApk = file
+                updateDownloadProgress = 1f
+                updateMessage = "Update downloaded and verified. Ready to install."
+            } catch (t: Throwable) {
+                downloadedUpdateApk = null
+                updateMessage = t.message ?: "Update download failed."
+            } finally {
+                updateDownloading = false
+            }
+        }
+    }
+
+    fun dismissUpdatePrompt() {
+        showUpdatePrompt = false
+    }
+
+    fun noteInstallerPermissionRequired() {
+        updateMessage = "Allow ForgePort to install unknown apps, then return and tap Install update again."
+    }
+
+    fun reportUpdateInstallError(message: String) {
+        updateMessage = message.ifBlank { "Could not open the Android package installer." }
     }
 
     private suspend fun refreshVariables() {
