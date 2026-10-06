@@ -457,6 +457,9 @@ private fun ProjectCard(project: StagedProject, onDelete: () -> Unit) {
 @Composable
 private fun ProjectPicker(projects: List<StagedProject>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(projects.firstOrNull()?.name) {
+        onSelected(projects.firstOrNull()?.name.orEmpty())
+    }
     Box {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(selected.ifBlank { "Select staged project" }) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -484,7 +487,6 @@ private fun GitHubScreen(vm: ForgePortViewModel) {
     var commit by remember { mutableStateOf("Small bug fixes") }
     var targetPath by remember { mutableStateOf("") }
     var unwrap by remember { mutableStateOf(true) }
-    LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
     ScreenColumn(vm) {
         StageZipCard(vm)
         SectionHeader("Publish to GitHub", "The repository-owner token is matched automatically from Variables.")
@@ -509,7 +511,6 @@ private fun HuggingFaceScreen(vm: ForgePortViewModel) {
     var targetPath by remember { mutableStateOf("") }
     var unwrap by remember { mutableStateOf(true) }
     var token by remember { mutableStateOf("") }
-    LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
     LaunchedEffect(vm.hfTokenNames) { if (token.isBlank()) token = vm.hfTokenNames.firstOrNull().orEmpty() }
     ScreenColumn(vm) {
         StageZipCard(vm)
