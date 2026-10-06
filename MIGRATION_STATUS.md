@@ -30,7 +30,7 @@
 - ForgePort now includes its own adaptive launcher icon, round icon, monochrome icon, legacy icon, and Android 12+ splash treatment.
 - Edge-to-edge Android rendering remains enabled.
 - The old Overview “Local-first project tools” banner has been removed.
-- A Material 3 Updates page and startup update prompt now provide direct GitHub Release updates.
+- A Material 3 Updates page and startup update prompt now provide direct GitHub Release updates, with a persistent Automatic update pop-ups preference.
 - Staged-project deletion is immediate with no confirmation dialog, and routine add/delete successes no longer create top status banners; errors are still surfaced.
 
 ## Build and release automation
@@ -48,7 +48,10 @@
 - Startup checks are silent unless a newer release is found.
 - Updates can also be checked manually from **Updates**.
 - Prerelease builds receive newer prereleases; stable builds ignore prereleases.
-- APK downloads expose progress and are SHA-256 verified when the release provides a checksum asset.
+- APK downloads expose progress through the Updates page and an animated top progress banner, and are SHA-256 verified when the release provides a checksum asset.
+- **Download update** automatically continues into Android’s package installer after verification.
+- Android 8+ install-app permission is requested when needed; ForgePort resumes the pending install after returning with permission granted.
+- Automatic update pop-ups can be disabled without disabling the background startup check or manual checks.
 - Installation uses `FileProvider` and Android’s package installer rather than silent installation.
 - Persistent signing is required for Android to accept one release as an update to another.
 

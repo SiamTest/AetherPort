@@ -1,6 +1,11 @@
 package com.forgeport.android.ui
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -56,11 +61,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,11 +77,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -85,7 +94,6 @@ import com.forgeport.android.BuildConfig
 import com.forgeport.android.ForgePortViewModel
 import com.forgeport.android.R
 import com.forgeport.android.model.StagedProject
-import com.forgeport.android.update.UpdateInstaller
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -115,6 +123,15 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
 
     LaunchedEffect(Unit) {
         vm.checkForUpdates(silent = true)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.resumePendingUpdateInstall()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     ModalNavigationDrawer(
@@ -191,6 +208,14 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                     composable("variables") { VariablesScreen(vm) }
                     composable("updates") { UpdatesScreen(vm) }
                 }
+                AnimatedVisibility(
+                    visible = vm.updateDownloading || vm.updateInstalling || vm.updateInstallPending,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 10.dp),
+                    enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                ) {
+                    UpdateProgressBanner(vm)
+                }
                 if (vm.busy) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
@@ -235,11 +260,61 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
             confirmButton = {
                 TextButton(onClick = {
                     vm.dismissUpdatePrompt()
-                    nav.navigate("updates")
-                }) { Text("Update") }
+                    vm.downloadUpdate()
+                }) { Text("Download update") }
             },
             dismissButton = { TextButton(onClick = vm::dismissUpdatePrompt) { Text("Later") } },
         )
+    }
+}
+
+@Composable
+private fun UpdateProgressBanner(vm: ForgePortViewModel) {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when {
+                            vm.updateDownloading -> "Downloading update"
+                            vm.updateInstallPending -> "Waiting for install permission"
+                            else -> "Opening installer"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        when {
+                            vm.updateDownloading && vm.updateDownloadTotalBytes > 0L ->
+                                "${humanBytes(vm.updateDownloadedBytes)} / ${humanBytes(vm.updateDownloadTotalBytes)}"
+                            vm.updateInstallPending -> "Return to ForgePort after allowing update installation."
+                            else -> "The verified APK is ready to install."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (vm.updateDownloading) {
+                if (vm.updateDownloadTotalBytes > 0L) {
+                    LinearProgressIndicator(
+                        progress = { vm.updateDownloadProgress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
     }
 }
 
@@ -542,22 +617,45 @@ private fun VariablesScreen(vm: ForgePortViewModel) {
 
 @Composable
 private fun UpdatesScreen(vm: ForgePortViewModel) {
-    val context = LocalContext.current
     val update = vm.availableUpdate
     ScreenColumn(vm) {
-        SectionHeader("App updates", "ForgePort checks GitHub Releases automatically when the app opens.")
+        SectionHeader(
+            "App updates",
+            "ForgePort checks GitHub Releases when the app opens. Downloaded updates automatically continue to Android's installer.",
+        )
 
         ElevatedCard {
-            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Current version", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                Text(BuildConfig.UPDATE_GITHUB_REPOSITORY, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Automatic update pop-ups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Show the update prompt automatically when ForgePort opens and a newer release is available.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = vm.automaticUpdatePopups,
+                        onCheckedChange = vm::setAutomaticUpdatePopups,
+                    )
+                }
+                HorizontalDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Current version", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                    Text(BuildConfig.UPDATE_GITHUB_REPOSITORY, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
 
         FilledTonalButton(
             onClick = { vm.checkForUpdates(silent = false) },
-            enabled = !vm.updateChecking && !vm.updateDownloading,
+            enabled = !vm.updateChecking && !vm.updateDownloading && !vm.updateInstalling,
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (vm.updateChecking) {
@@ -623,32 +721,34 @@ private fun UpdatesScreen(vm: ForgePortViewModel) {
                     if (downloaded == null) {
                         Button(
                             onClick = vm::downloadUpdate,
-                            enabled = !vm.updateDownloading,
+                            enabled = !vm.updateDownloading && !vm.updateInstalling,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(Icons.Filled.CloudDownload, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
                             Text(if (vm.updateDownloading) "Downloading…" else "Download update")
                         }
+                        Text(
+                            "After the APK is downloaded and verified, ForgePort opens Android's installer automatically.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     } else {
                         Button(
-                            onClick = {
-                                runCatching { UpdateInstaller.launch(context, downloaded) }
-                                    .onSuccess { launched ->
-                                        if (!launched) vm.noteInstallerPermissionRequired()
-                                    }
-                                    .onFailure { error ->
-                                        vm.reportUpdateInstallError(error.message ?: "Could not open the Android package installer.")
-                                    }
-                            },
+                            onClick = vm::installDownloadedUpdate,
+                            enabled = !vm.updateDownloading && !vm.updateInstalling,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Icon(Icons.Filled.SystemUpdate, contentDescription = null)
+                            if (vm.updateInstalling) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Filled.SystemUpdate, contentDescription = null)
+                            }
                             Spacer(Modifier.width(8.dp))
-                            Text("Install update")
+                            Text(if (vm.updateInstalling) "Opening installer…" else "Install update")
                         }
                         Text(
-                            "The APK was downloaded from the GitHub release and SHA-256 verified when a checksum asset is present.",
+                            "ForgePort keeps the verified APK available as a fallback if Android's installer was cancelled. SHA-256 is verified when the release provides a checksum asset.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

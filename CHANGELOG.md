@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.0-alpha09
+
+- Added a persistent **Automatic update pop-ups** toggle, enabled by default, matching Yutaka's update preference behavior.
+- Startup update checks continue in the background even when automatic pop-ups are disabled; only the automatic prompt is suppressed.
+- **Download update** now downloads, verifies, and immediately opens Android's package installer without requiring a second tap.
+- On Android 8+, ForgePort automatically opens the per-app install permission screen when required and resumes installation after the user returns with permission granted.
+- Added an animated Material 3 update-progress banner while downloading, waiting for install permission, or opening the installer.
+- Kept a manual **Install update** fallback when a verified APK already exists or the Android installer was cancelled.
+- Bumped Android version code to `3000009`.
+
 ## 3.0.0-alpha08
 
 - Staged projects now delete immediately when the trash button is tapped; the confirmation dialog has been removed.

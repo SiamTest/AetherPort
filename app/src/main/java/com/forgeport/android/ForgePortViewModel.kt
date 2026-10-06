@@ -1,6 +1,7 @@
 package com.forgeport.android
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +17,7 @@ import com.forgeport.android.model.StagedProject
 import com.forgeport.android.oauth.GoogleOAuthService
 import com.forgeport.android.repo.RepositoryService
 import com.forgeport.android.update.AppUpdate
+import com.forgeport.android.update.UpdateInstaller
 import com.forgeport.android.update.UpdateService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,6 +30,7 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
     private val repositoryService = RepositoryService(application, projectStore, variableStore)
     private val googleOAuthService = GoogleOAuthService(application)
     private val updateService = UpdateService(application)
+    private val updatePreferences = application.getSharedPreferences("forgeport_updates", Context.MODE_PRIVATE)
     private var startupUpdateCheckDone = false
 
     var projects by mutableStateOf<List<StagedProject>>(emptyList())
@@ -63,6 +66,14 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
     var updateMessage by mutableStateOf<String?>(null)
         private set
     var showUpdatePrompt by mutableStateOf(false)
+        private set
+    var automaticUpdatePopups by mutableStateOf(
+        updatePreferences.getBoolean("automatic_update_popups", true),
+    )
+        private set
+    var updateInstallPending by mutableStateOf(false)
+        private set
+    var updateInstalling by mutableStateOf(false)
         private set
 
     init {
@@ -195,7 +206,7 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun checkForUpdates(silent: Boolean = false) {
         if (silent && startupUpdateCheckDone) return
-        if (updateChecking || updateDownloading) return
+        if (updateChecking || updateDownloading || updateInstalling) return
         if (silent) startupUpdateCheckDone = true
         viewModelScope.launch {
             updateChecking = true
@@ -205,6 +216,7 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
                 availableUpdate = update
                 if (update == null) {
                     downloadedUpdateApk = null
+                    updateInstallPending = false
                     showUpdatePrompt = false
                     if (!silent) updateMessage = "ForgePort is up to date."
                 } else {
@@ -212,7 +224,7 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
                         updateService.downloadedFile(update).takeIf { updateService.hasCompleteDownload(update) }
                     }
                     updateMessage = "ForgePort ${update.versionName} is available."
-                    showUpdatePrompt = silent
+                    showUpdatePrompt = silent && automaticUpdatePopups
                 }
             } catch (t: Throwable) {
                 if (!silent) updateMessage = t.message ?: "Could not check for updates."
@@ -222,11 +234,22 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setAutomaticUpdatePopups(enabled: Boolean) {
+        automaticUpdatePopups = enabled
+        updatePreferences.edit().putBoolean("automatic_update_popups", enabled).apply()
+        if (!enabled) showUpdatePrompt = false
+    }
+
     fun downloadUpdate() {
         val update = availableUpdate ?: return
-        if (updateDownloading) return
+        if (updateDownloading || updateInstalling) return
+        if (downloadedUpdateApk?.isFile == true) {
+            installDownloadedUpdate()
+            return
+        }
         viewModelScope.launch {
             updateDownloading = true
+            updateInstallPending = false
             updateDownloadProgress = 0f
             updateDownloadedBytes = 0L
             updateDownloadTotalBytes = update.apkSizeBytes
@@ -247,26 +270,55 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 downloadedUpdateApk = file
                 updateDownloadProgress = 1f
-                updateMessage = "Update downloaded and verified. Ready to install."
+                updateMessage = "Update downloaded and verified. Opening installer…"
+                updateDownloading = false
+                installDownloadedUpdate()
             } catch (t: Throwable) {
                 downloadedUpdateApk = null
                 updateMessage = t.message ?: "Update download failed."
-            } finally {
                 updateDownloading = false
             }
         }
     }
 
+    fun installDownloadedUpdate() {
+        val apk = downloadedUpdateApk ?: return
+        if (updateDownloading || updateInstalling) return
+        val application = getApplication<Application>()
+        if (!UpdateInstaller.canInstallPackages(application)) {
+            updateInstallPending = true
+            updateMessage = "Allow ForgePort to install updates. Installation will continue automatically when you return."
+            runCatching { UpdateInstaller.requestInstallPermission(application) }
+                .onFailure { error ->
+                    updateInstallPending = false
+                    updateMessage = error.message ?: "Could not open the install-apps permission screen."
+                }
+            return
+        }
+
+        updateInstalling = true
+        updateInstallPending = false
+        updateMessage = "Opening Android package installer…"
+        runCatching { UpdateInstaller.launchInstaller(application, apk) }
+            .onFailure { error ->
+                updateMessage = error.message ?: "Could not open the Android package installer."
+            }
+        updateInstalling = false
+    }
+
+    fun resumePendingUpdateInstall() {
+        if (!updateInstallPending) return
+        val application = getApplication<Application>()
+        if (UpdateInstaller.canInstallPackages(application)) {
+            installDownloadedUpdate()
+        } else {
+            updateInstallPending = false
+            updateMessage = "Install permission was not granted. Tap Install update to try again."
+        }
+    }
+
     fun dismissUpdatePrompt() {
         showUpdatePrompt = false
-    }
-
-    fun noteInstallerPermissionRequired() {
-        updateMessage = "Allow ForgePort to install unknown apps, then return and tap Install update again."
-    }
-
-    fun reportUpdateInstallError(message: String) {
-        updateMessage = message.ifBlank { "Could not open the Android package installer." }
     }
 
     private suspend fun refreshVariables() {

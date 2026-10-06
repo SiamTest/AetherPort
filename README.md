@@ -2,7 +2,7 @@
 
 Native, local-first Android port of ForgePort.
 
-**Version:** 3.0.0-alpha08  
+**Version:** 3.0.0-alpha09  
 **Package:** `com.forgeport.android`  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -22,7 +22,7 @@ ForgePort does not require a hosted ForgePort server. Project staging, ZIP work,
 - Google OAuth uses a Desktop OAuth `credentials.json`, local `127.0.0.1` callback, offline access, and exports `token.pickle` / `token.json`.
 - ForgePort has its own adaptive, round, monochrome, legacy, and Android 12+ splash logo resources.
 - The Overview no longer shows the old “Local-first project tools” banner.
-- In-app updates check GitHub Releases on launch, support manual checks, show release notes, download the APK with progress, verify the release SHA-256 asset, and launch Android’s package installer.
+- In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
 
 ## Build locally
 
@@ -47,7 +47,7 @@ It:
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
 7. creates `forgeport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha08`) with the APK, checksum, and update manifest.
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha09`) with the APK, checksum, and update manifest.
 
 Alpha, beta and RC versions are marked as prereleases automatically.
 
@@ -74,10 +74,13 @@ The update flow:
 
 1. compares semantic versions against the installed `BuildConfig.VERSION_NAME`;
 2. allows prerelease updates when the installed build is alpha/beta/RC, while stable builds ignore prereleases;
-3. shows a Material 3 update prompt when a newer release exists;
-4. downloads the APK from the release with progress;
-5. verifies the SHA-256 checksum when the matching release checksum is present; and
-6. opens Android’s package installer. Android 8+ may first ask the user to allow ForgePort to install unknown apps.
+3. checks automatically on app launch and shows the update prompt only when **Automatic update pop-ups** is enabled;
+4. downloads the APK from the release with an animated in-app progress banner;
+5. verifies the SHA-256 checksum when the matching release checksum is present;
+6. automatically opens Android’s package installer as soon as verification completes; and
+7. on Android 8+, opens the per-app install permission screen when needed and resumes installation automatically after the user returns with permission granted.
+
+The **Automatic update pop-ups** preference is enabled by default and is stored locally. Disabling it does not disable update checks; it only suppresses the automatic prompt. Manual checks remain available from **Updates**.
 
 The default update repository can be overridden at build time with:
 

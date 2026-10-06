@@ -38,6 +38,16 @@ assert 'Download update' in ui
 assert 'Install update' in ui
 assert 'vm.checkForUpdates(silent = true)' in ui
 assert 'Icons.Filled.SystemUpdate' in ui
+assert 'Automatic update pop-ups' in ui
+assert 'AnimatedVisibility(' in ui
+assert 'UpdateProgressBanner(vm)' in ui
+assert 'vm::installDownloadedUpdate' in ui
+assert 'vm.resumePendingUpdateInstall()' in ui
+assert 'automatic_update_popups' in vm_source
+assert 'setAutomaticUpdatePopups' in vm_source
+assert 'installDownloadedUpdate()' in vm_source
+assert 'resumePendingUpdateInstall' in vm_source
+assert 'UpdateInstaller.requestInstallPermission' in vm_source
 
 # Compose 1.8+ exposes weight through RowScope/ColumnScope. Importing the
 # internal layout weight symbol causes compileDebugKotlin to fail.
@@ -59,8 +69,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha08"' in build
-assert 'versionCode = 3000008' in build
+assert 'versionName = "3.0.0-alpha09"' in build
+assert 'versionCode = 3000009' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
@@ -70,6 +80,7 @@ assert 'Icons.AutoMirrored.Filled.ArrowForward' in ui
 assert 'compileSdk = 36' in build
 assert 'androidx.compose.material3:material3' in build
 assert 'material-icons-extended' in build
+assert 'androidx.compose.animation:animation' in build
 
 manifest = (root / "app/src/main/AndroidManifest.xml").read_text()
 assert 'android:icon="@mipmap/ic_launcher"' in manifest
@@ -93,6 +104,10 @@ for update_source in [
     'app/src/test/java/com/forgeport/android/update/VersionComparatorTest.kt',
 ]:
     assert (root / update_source).is_file(), update_source
+
+update_installer = (root / 'app/src/main/java/com/forgeport/android/update/UpdateInstaller.kt').read_text()
+for marker in ['canInstallPackages', 'requestInstallPermission', 'launchInstaller']:
+    assert marker in update_installer
 
 update_service = (root / 'app/src/main/java/com/forgeport/android/update/UpdateService.kt').read_text()
 assert 'api.github.com/repos/' in update_service
