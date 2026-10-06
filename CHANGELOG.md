@@ -1,5 +1,42 @@
 # Changelog
 
+## 3.0.0-alpha13
+
+- Added native Browse / Library / Downloads bottom navigation across the gallery section, with consistent black-and-orange screens and saved tab/scroll state. Library Continue reading opens the native reader directly; download notifications open Downloads.
+- Added pull-to-refresh and automatic near-end loading in both catalogue views. Refresh keeps visible results until new data arrives, and refresh failures keep the current results. Failed pagination stops automatic requests until retried; repeated/empty continuation pages cannot loop indefinitely.
+- Replaced the gallery WebView action with native Download/Pause/Offline ready controls. Website access remains a secondary Account & access menu action for login and access checks.
+- Added Downloads as a separate native page with offline counts, live progress, pause/resume, and completed/failed download entries.
+- Added an automatic-paging regression check to the catalogue tests. Version code is `3000013`.
+
+## 3.0.0-alpha12
+
+- Replaced the default E-Hentai WebView landing page with a native black-and-orange catalogue matching the supplied layout: back/search/grid/menu toolbar, Popular/Latest/Filter controls, and two-column portrait covers with titles beneath.
+- Popular and Latest load distinct live lists. Search and category/language/uploader/rating/page-count filters work on both modes; Popular uses batched official metadata and retains popularity order. Latest supports the website's next-page cursor through Load more.
+- Added filter validation, reset/clear, list view, refresh, loading/empty/error/retry states, and a WebView/sign-in fallback. Cancelled catalogue requests cannot overwrite newer tab/search/filter results.
+- Restyled gallery details with cover/title/author, metadata, grouped tags, library/refresh/WebView actions, collapsible description, one Chapter row, download/pause controls, and an orange Start/Continue button.
+- Added bounded thumbnail transfers using existing URL/image validation and atomic writes, with sampled bitmap decoding and saved-metadata compatibility. Existing offline downloads and reader modes remain available.
+- Added synthetic catalogue parsing, search/filter, paging, host-validation, and metadata regression tests. Version code is `3000012`.
+
+## 3.0.0-alpha11
+
+- Gallery links now open native manga-style details with cover, metadata, tags, page list, Save, Continue reading, and Download gallery actions.
+- Added a fullscreen reader with right-to-left and left-to-right paging, vertical scrolling, pinch/double-tap zoom, page slider, and remembered reading progress/direction.
+- Added Gallery library to Overview and the drawer for saved galleries, offline page counts, and download actions.
+- Gallery downloads run sequentially in an Android data-sync foreground service, with a progress notification, pause, and resume that skips completed pages after interruption/restart.
+- Added atomic metadata and page persistence, separate bounded preview cache, image verification, storage-space checks, session-cookie reuse, and main-site/image-host URL restrictions.
+- Website HTTP/image-limit errors are surfaced instead of marking incomplete galleries successful; quota errors pause pending downloads.
+- Added synthetic gallery-parser and URL validation tests to the existing CI unit-test gate; version code is now `3000011`.
+
+## 3.0.0-alpha10
+
+- Added an **E-Hentai** page to the navigation drawer and Overview for browsing the live website inside ForgePort.
+- Added title/artist/tag search, back/forward, home, reload/stop, page loading progress, pinch zoom, and an external-browser shortcut.
+- Preserve WebView login cookies and navigation history across screen changes and activity recreation.
+- Added loading-error recovery, website/account host restrictions, and safe WebView settings without a native JavaScript bridge.
+- File downloads are declined; Telegram bot downloads, uploads, watchers, and credentials are not included.
+- Made the navigation drawer scrollable for smaller screens and added URL-validation/search tests to the existing CI unit-test gate.
+- Bumped Android version code to `3000010`.
+
 ## 3.0.0-alpha09
 
 - Added a persistent **Automatic update pop-ups** toggle, enabled by default, matching Yutaka's update preference behavior.

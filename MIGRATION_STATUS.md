@@ -29,6 +29,9 @@
 - Material 3 color system, shapes, centered app bar, navigation drawer, tonal actions, elevated cards, and Material icons are used throughout.
 - ForgePort now includes its own adaptive launcher icon, round icon, monochrome icon, legacy icon, and Android 12+ splash treatment.
 - Edge-to-edge Android rendering remains enabled.
+- E-Hentai has a native black-and-orange catalogue with Popular/Latest, search, working filters, grid/list views, pull-to-refresh, automatic pagination, and Browse/Library/Downloads tabs, plus native manga-style gallery details, fullscreen reader, saved gallery library, and resumable offline page downloads. A WebView remains available for website/account access. No Telegram bot runtime is imported.
+- Native reader preferences and progress survive restarts; offline downloads persist separately from preview cache.
+- Gallery downloads use an Android dataSync foreground service with pause/resume and notification progress.
 - The old Overview “Local-first project tools” banner has been removed.
 - A Material 3 Updates page and startup update prompt now provide direct GitHub Release updates, with a persistent Automatic update pop-ups preference.
 - Staged-project deletion is immediate with no confirmation dialog, and routine add/delete successes no longer create top status banners; errors are still surfaced.

@@ -44,7 +44,7 @@ assert 'UpdateProgressBanner(vm)' in ui
 assert 'vm::installDownloadedUpdate' in ui
 assert 'vm.resumePendingUpdateInstall()' in ui
 assert 'automatic_update_popups' in vm_source
-assert 'updateAutomaticUpdatePopups' in vm_source
+assert 'setAutomaticUpdatePopups' in vm_source
 assert 'installDownloadedUpdate()' in vm_source
 assert 'resumePendingUpdateInstall' in vm_source
 assert 'UpdateInstaller.requestInstallPermission' in vm_source
@@ -69,8 +69,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha09"' in build
-assert 'versionCode = 3000009' in build
+assert 'versionName = "3.0.0-alpha13"' in build
+assert 'versionCode = 3000013' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
@@ -135,4 +135,60 @@ for marker in [
 assert 'sdkmanager tools' not in workflow
 assert '"tools"' not in workflow
 
+assert 'Destination("ehentai", "E-Hentai", Icons.Filled.Public)' in ui
+assert 'GalleryCatalogScreen(galleryVm' in ui
+assert '!readerRoute && !nativeGalleryRoute' in ui
+assert 'GalleryColorScheme' in ui
+for marker in ['GalleryDetailsScreen(', 'GalleryReaderScreen(', 'GalleryLibraryScreen(', 'Uri.encode(url)', 'gesturesEnabled = !readerRoute']:
+    assert marker in ui, marker
+browser = (root / 'app/src/main/java/com/forgeport/android/ui/EhentaiScreen.kt').read_text()
+for marker in [
+    'AndroidView(', 'BackHandler(', 'EhentaiNavigation.searchUrl(query)',
+    'allowFileAccess = false', 'allowContentAccess = false',
+    'WebSettings.MIXED_CONTENT_NEVER_ALLOW', 'safeBrowsingEnabled = true',
+    'setAcceptThirdPartyCookies(this, false)', 'request.isForMainFrame',
+    'restoreState(it)', 'saveState(it)', 'view.destroy()', 'onRelease =',
+]:
+    assert marker in browser, marker
+assert 'addJavascriptInterface' not in browser
+assert 'handler.proceed' not in browser
+assert 'onOpenGallery(gallery)' in browser
+assert (root / 'app/src/test/java/com/forgeport/android/ui/EhentaiNavigationTest.kt').is_file()
+assert (root / 'app/src/test/java/com/forgeport/android/gallery/GalleryParserTest.kt').is_file()
+gallery_root = root / 'app/src/main/java/com/forgeport/android/gallery'
+repository = (gallery_root / 'GalleryRepository.kt').read_text()
+for marker in ['AtomicFile(', 'invokeOnCancellation', 'followRedirects(false)', 'response.code == 429 || response.code == 509', 'Cookie', 'currentCoroutineContext().ensureActive()', '.part', 'count == expected', 'validImage(temporary)', 'checkSpace', 'trimCache', 'if (validImage(pagePath(root, gallery, index))) continue']:
+    assert marker in repository, marker
+assert 'readNBytes' not in repository, 'InputStream.readNBytes requires newer Android versions without desugaring.'
+reader = (gallery_root / 'GalleryReaderScreen.kt').read_text()
+for marker in ['HorizontalPager(', 'LazyColumn(', 'reverseLayout = mode == "RTL"', 'canPan = { scale > 1f }', 'markRead(gallery, current)', 'Slider(', 'WindowInsetsCompat.Type.systemBars()']:
+    assert marker in reader, marker
+service = (gallery_root / 'GalleryDownloadService.kt').read_text()
+for marker in ['startForeground(', 'override fun onTimeout', 'override fun onDestroy', 'START_NOT_STICKY', 'GalleryRateLimitException', 'pending.clear()', 'activeJob?.cancel()']:
+    assert marker in service, marker
+for marker in ['android.permission.FOREGROUND_SERVICE_DATA_SYNC', 'android.permission.POST_NOTIFICATIONS', 'android:foregroundServiceType="dataSync"', '.gallery.GalleryDownloadService']:
+    assert marker in manifest, marker
+
+assert (root / 'app/src/test/java/com/forgeport/android/gallery/GalleryCatalogTest.kt').is_file()
+assert 'GalleryCatalogScreen(galleryVm' in ui
+assert 'back = { nav.popBackStack() }' in ui
+catalog = (gallery_root / 'GalleryCatalog.kt').read_text()
+for marker in ['1023 - filters.categories.sum()', 'f_srdd', 'f_spf', 'f_spt', 'isListUrl', 'GalleryParser::isImageUrl']:
+    assert marker in catalog, marker
+catalog_ui = (gallery_root / 'GalleryCatalogScreen.kt').read_text()
+for marker in ['GalleryCatalogMode.POPULAR', 'GalleryCatalogMode.LATEST', 'GalleryFilterDialog(', 'GridCells.Fixed(2)', 'vm.browse(more = true)', 'No galleries found']:
+    assert marker in catalog_ui, marker
+for marker in ['chunked(25)', 'https://api.e-hentai.org/api.php', 'Semaphore(3)', 'thumbnailFile', 'writeImage(imageUrl, target, page)']:
+    assert marker in repository, marker
+screens = (gallery_root / 'GalleryScreens.kt').read_text()
+for marker in ['GalleryNavigationBar(', 'downloadsOnly', 'read(gallery.url, gallery.lastRead)', 'Text("Account & access")']:
+    assert marker in screens, marker
+assert 'DetailAction("WebView"' not in screens
+assert 'composable("gallery-downloads")' in ui
+assert 'read = ::readGallery' in ui
+for marker in ['PullToRefreshBox(', 'vm.catalog.canLoadMore(lastVisible)', 'rememberLazyGridState()', 'rememberLazyListState()', 'GalleryNavigationBar("browse"']:
+    assert marker in catalog_ui, marker
+catalog_vm = (gallery_root / 'GalleryViewModel.kt').read_text()
+for marker in ['refresh && sameSelection', 'refreshing = false', 'if (more) previous + page.items else page.items', 'page.next != cursor', 'error == null && next != null']:
+    assert marker in catalog_vm, marker
 print("source verification: OK")

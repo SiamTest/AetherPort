@@ -9,6 +9,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.platform.LocalView
+import androidx.activity.ComponentActivity
+import androidx.core.view.WindowCompat
+import androidx.compose.material3.ScaffoldDefaults
+import com.forgeport.android.gallery.GalleryCatalogScreen
+import com.forgeport.android.ui.theme.GalleryColorScheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,11 +32,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Key
@@ -86,6 +96,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -93,6 +105,10 @@ import androidx.navigation.compose.rememberNavController
 import com.forgeport.android.BuildConfig
 import com.forgeport.android.ForgePortViewModel
 import com.forgeport.android.R
+import com.forgeport.android.gallery.GalleryDetailsScreen
+import com.forgeport.android.gallery.GalleryLibraryScreen
+import com.forgeport.android.gallery.GalleryReaderScreen
+import com.forgeport.android.gallery.GalleryViewModel
 import com.forgeport.android.model.StagedProject
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -106,6 +122,9 @@ private val destinations = listOf(
     Destination("github", "GitHub", Icons.Filled.Code),
     Destination("huggingface", "Hugging Face", Icons.Filled.CloudUpload),
     Destination("download", "HF Download", Icons.Filled.CloudDownload),
+    Destination("ehentai", "E-Hentai", Icons.Filled.Public),
+    Destination("gallery-library", "Gallery library", Icons.Filled.LibraryBooks),
+    Destination("gallery-downloads", "Gallery downloads", Icons.Filled.CloudDownload),
     Destination("google", "Google OAuth", Icons.Filled.Key),
     Destination("variables", "Variables", Icons.Filled.Security),
     Destination("updates", "Updates", Icons.Filled.SystemUpdate),
@@ -113,13 +132,46 @@ private val destinations = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
+fun ForgePortApp(vm: ForgePortViewModel = viewModel(), galleryLibraryRequest: Int = 0) {
     val nav = rememberNavController()
+    val galleryVm: GalleryViewModel = viewModel()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: "home"
-    val title = destinations.firstOrNull { it.route == currentRoute }?.title ?: "ForgePort"
+    val readerRoute = currentRoute.startsWith("reader/")
+    val galleryRoute = currentRoute.startsWith("gallery/") || currentRoute.startsWith("ehentai/web/")
+    val nativeGalleryRoute = currentRoute in setOf("ehentai", "gallery-library", "gallery-downloads") || currentRoute.startsWith("gallery/")
+    val galleryUiRoute = nativeGalleryRoute || readerRoute || currentRoute.startsWith("ehentai/web/")
+    val view = LocalView.current
+    DisposableEffect(galleryUiRoute, view) {
+        val window = (view.context as? ComponentActivity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val statusAppearance = controller?.isAppearanceLightStatusBars
+        val navigationAppearance = controller?.isAppearanceLightNavigationBars
+        if (galleryUiRoute) {
+            controller?.isAppearanceLightStatusBars = false
+            controller?.isAppearanceLightNavigationBars = false
+        }
+        onDispose {
+            if (statusAppearance != null) controller?.isAppearanceLightStatusBars = statusAppearance
+            if (navigationAppearance != null) controller?.isAppearanceLightNavigationBars = navigationAppearance
+        }
+    }
+    val title = if (currentRoute.startsWith("ehentai/web/")) "Account & access" else if (galleryRoute) "E-Hentai gallery" else destinations.firstOrNull { it.route == currentRoute }?.title ?: "ForgePort"
+    fun openGallery(url: String) { nav.navigate("gallery/${Uri.encode(url)}") { launchSingleTop = true } }
+    fun readGallery(url: String, page: Int) { nav.navigate("reader/${Uri.encode(url)}/$page") }
+    fun openWebsite(url: String) { nav.navigate("ehentai/web/${Uri.encode(url)}") { launchSingleTop = true } }
+    fun openGallerySection(route: String) {
+        nav.navigate(route) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    LaunchedEffect(galleryLibraryRequest) {
+        if (galleryLibraryRequest > 0) openGallerySection("gallery-downloads")
+    }
 
     LaunchedEffect(Unit) {
         vm.checkForUpdates(silent = true)
@@ -134,102 +186,132 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    Surface(
-                        modifier = Modifier.size(52.dp),
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.primaryContainer,
+    MaterialTheme(colorScheme = if (galleryUiRoute) GalleryColorScheme else MaterialTheme.colorScheme) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = !readerRoute,
+            drawerContent = {
+                ModalDrawerSheet(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_forgeport_mark),
-                                contentDescription = null,
-                                modifier = Modifier.size(34.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    Column {
-                        Text("ForgePort", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("Local Android workspace", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                HorizontalDivider()
-                Spacer(Modifier.height(8.dp))
-                destinations.forEach { item ->
-                    NavigationDrawerItem(
-                        icon = { Icon(item.icon, contentDescription = null) },
-                        label = { Text(item.title) },
-                        selected = currentRoute == item.route,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            nav.navigate(item.route) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                        Surface(
+                            modifier = Modifier.size(52.dp),
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_forgeport_mark),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(34.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
                             }
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                    )
-                }
-            }
-        },
-    ) {
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text(title, fontWeight = FontWeight.SemiBold) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Open navigation")
                         }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                )
+                        Column {
+                            Text("ForgePort", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Local Android workspace", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    destinations.forEach { item ->
+                        NavigationDrawerItem(
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(item.title) },
+                            selected = currentRoute == item.route || (galleryRoute && item.route == "ehentai"),
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                nav.navigate(item.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                        )
+                    }
+                }
             },
-        ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) {
-                NavHost(navController = nav, startDestination = "home") {
-                    composable("home") { HomeScreen(vm) { nav.navigate(it) } }
-                    composable("projects") { ProjectsScreen(vm) }
-                    composable("github") { GitHubScreen(vm) }
-                    composable("huggingface") { HuggingFaceScreen(vm) }
-                    composable("download") { HfDownloadScreen(vm) }
-                    composable("google") { GoogleOAuthScreen(vm) }
-                    composable("variables") { VariablesScreen(vm) }
-                    composable("updates") { UpdatesScreen(vm) }
-                }
-                AnimatedVisibility(
-                    visible = vm.updateDownloading || vm.updateInstalling || vm.updateInstallPending,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 10.dp),
-                    enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-                    exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-                ) {
-                    UpdateProgressBanner(vm)
-                }
-                if (vm.busy) {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f),
+        ) {
+            Scaffold(
+                containerColor = MaterialTheme.colorScheme.background,
+                contentWindowInsets = if (nativeGalleryRoute) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
+                topBar = {
+                    if (!readerRoute && !nativeGalleryRoute) {
+                        CenterAlignedTopAppBar(
+                            title = { Text(title, fontWeight = FontWeight.SemiBold) },
+                            navigationIcon = {
+                                IconButton(onClick = { if (galleryRoute) nav.popBackStack() else scope.launch { drawerState.open() } }) {
+                                    if (galleryRoute) Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                    else Icon(Icons.Filled.Menu, contentDescription = "Open navigation")
+                                }
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                        )
+                    }
+                },
+            ) { padding ->
+                Box(Modifier.fillMaxSize().padding(padding)) {
+                    NavHost(navController = nav, startDestination = "home") {
+                        composable("home") { HomeScreen(vm) { nav.navigate(it) } }
+                        composable("projects") { ProjectsScreen(vm) }
+                        composable("github") { GitHubScreen(vm) }
+                        composable("huggingface") { HuggingFaceScreen(vm) }
+                        composable("download") { HfDownloadScreen(vm) }
+                        composable("ehentai") {
+                            GalleryCatalogScreen(galleryVm, back = { nav.popBackStack() }, open = ::openGallery,
+                                website = ::openWebsite, library = { openGallerySection("gallery-library") },
+                                downloads = { openGallerySection("gallery-downloads") })
+                        }
+                        composable("gallery-library") {
+                            GalleryLibraryScreen(galleryVm, ::openGallery, browse = { openGallerySection("ehentai") },
+                                library = {}, downloadsPage = { openGallerySection("gallery-downloads") }, back = { nav.popBackStack() }, read = ::readGallery)
+                        }
+                        composable("gallery-downloads") {
+                            GalleryLibraryScreen(galleryVm, ::openGallery, browse = { openGallerySection("ehentai") },
+                                library = { openGallerySection("gallery-library") }, downloadsPage = {}, back = { nav.popBackStack() }, read = ::readGallery, downloadsOnly = true)
+                        }
+                        composable("gallery/{url}") { entry ->
+                            val url = entry.arguments?.getString("url").orEmpty()
+                            GalleryDetailsScreen(url, galleryVm, read = ::readGallery, website = ::openWebsite, back = { nav.popBackStack() })
+                        }
+                        composable("ehentai/web/{url}") { entry ->
+                            EhentaiScreen(handleBack = !drawerState.isOpen, initialUrl = entry.arguments?.getString("url") ?: EhentaiNavigation.HOME)
+                        }
+                        composable("reader/{url}/{page}", arguments = listOf(navArgument("page") { type = NavType.IntType })) { entry ->
+                            GalleryReaderScreen(entry.arguments?.getString("url").orEmpty(), entry.arguments?.getInt("page") ?: 0, galleryVm) { nav.popBackStack() }
+                        }
+                        composable("google") { GoogleOAuthScreen(vm) }
+                        composable("variables") { VariablesScreen(vm) }
+                        composable("updates") { UpdatesScreen(vm) }
+                    }
+                    AnimatedVisibility(
+                        visible = vm.updateDownloading || vm.updateInstalling || vm.updateInstallPending,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 10.dp),
+                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            ElevatedCard {
-                                Row(
-                                    Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                                    Text("Working locally…", style = MaterialTheme.typography.titleMedium)
+                        UpdateProgressBanner(vm)
+                    }
+                    if (vm.busy) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                ElevatedCard {
+                                    Row(
+                                        Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                                        Text("Working locally…", style = MaterialTheme.typography.titleMedium)
+                                    }
                                 }
                             }
                         }
@@ -237,34 +319,34 @@ fun ForgePortApp(vm: ForgePortViewModel = viewModel()) {
                 }
             }
         }
-    }
 
-    val promptedUpdate = vm.availableUpdate
-    if (vm.showUpdatePrompt && promptedUpdate != null) {
-        AlertDialog(
-            onDismissRequest = vm::dismissUpdatePrompt,
-            icon = { Icon(Icons.Filled.SystemUpdate, contentDescription = null) },
-            title = { Text("ForgePort ${promptedUpdate.versionName} is available") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("A newer ForgePort release is available on GitHub.")
-                    if (promptedUpdate.notes.isNotBlank()) {
-                        Text(
-                            promptedUpdate.notes.take(420),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        val promptedUpdate = vm.availableUpdate
+        if (vm.showUpdatePrompt && promptedUpdate != null) {
+            AlertDialog(
+                onDismissRequest = vm::dismissUpdatePrompt,
+                icon = { Icon(Icons.Filled.SystemUpdate, contentDescription = null) },
+                title = { Text("ForgePort ${promptedUpdate.versionName} is available") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("A newer ForgePort release is available on GitHub.")
+                        if (promptedUpdate.notes.isNotBlank()) {
+                            Text(
+                                promptedUpdate.notes.take(420),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.dismissUpdatePrompt()
-                    vm.downloadUpdate()
-                }) { Text("Download update") }
-            },
-            dismissButton = { TextButton(onClick = vm::dismissUpdatePrompt) { Text("Later") } },
-        )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        vm.dismissUpdatePrompt()
+                        vm.downloadUpdate()
+                    }) { Text("Download update") }
+                },
+                dismissButton = { TextButton(onClick = vm::dismissUpdatePrompt) { Text("Later") } },
+            )
+        }
     }
 }
 
@@ -364,6 +446,8 @@ private fun HomeScreen(vm: ForgePortViewModel, open: (String) -> Unit) {
             Triple("GitHub", "Publish with an automatically matched repository-owner token.", "github"),
             Triple("Hugging Face", "Publish a staged project directly to a Space repository.", "huggingface"),
             Triple("HF Download", "Create a clean ZIP snapshot from a Space branch.", "download"),
+            Triple("E-Hentai", "Browse Popular and Latest, filter galleries, and read or download.", "ehentai"),
+            Triple("Gallery library", "Continue reading and manage offline gallery downloads.", "gallery-library"),
             Triple("Google OAuth", "Generate token.pickle and token.json locally.", "google"),
             Triple("Variables", "Keep reusable credentials protected by Android Keystore.", "variables"),
             Triple("Updates", "Check, download and install new ForgePort releases.", "updates"),
@@ -457,9 +541,6 @@ private fun ProjectCard(project: StagedProject, onDelete: () -> Unit) {
 @Composable
 private fun ProjectPicker(projects: List<StagedProject>, selected: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    LaunchedEffect(projects.firstOrNull()?.name) {
-        onSelected(projects.firstOrNull()?.name.orEmpty())
-    }
     Box {
         OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) { Text(selected.ifBlank { "Select staged project" }) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -487,6 +568,7 @@ private fun GitHubScreen(vm: ForgePortViewModel) {
     var commit by remember { mutableStateOf("Small bug fixes") }
     var targetPath by remember { mutableStateOf("") }
     var unwrap by remember { mutableStateOf(true) }
+    LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
     ScreenColumn(vm) {
         StageZipCard(vm)
         SectionHeader("Publish to GitHub", "The repository-owner token is matched automatically from Variables.")
@@ -511,6 +593,7 @@ private fun HuggingFaceScreen(vm: ForgePortViewModel) {
     var targetPath by remember { mutableStateOf("") }
     var unwrap by remember { mutableStateOf(true) }
     var token by remember { mutableStateOf("") }
+    LaunchedEffect(vm.projects) { if (project.isBlank()) project = vm.projects.firstOrNull()?.name.orEmpty() }
     LaunchedEffect(vm.hfTokenNames) { if (token.isBlank()) token = vm.hfTokenNames.firstOrNull().orEmpty() }
     ScreenColumn(vm) {
         StageZipCard(vm)
@@ -642,7 +725,7 @@ private fun UpdatesScreen(vm: ForgePortViewModel) {
                     }
                     Switch(
                         checked = vm.automaticUpdatePopups,
-                        onCheckedChange = vm::updateAutomaticUpdatePopups,
+                        onCheckedChange = vm::setAutomaticUpdatePopups,
                     )
                 }
                 HorizontalDivider()

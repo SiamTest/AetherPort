@@ -62,6 +62,19 @@ private val ForgePortShapes = Shapes(
     extraLarge = RoundedCornerShape(30.dp),
 )
 
+internal val GalleryColorScheme = darkColorScheme(
+    primary = Color(0xFFF9811A), onPrimary = Color(0xFF18120D),
+    primaryContainer = Color(0xFF432710), onPrimaryContainer = Color(0xFFFFCCA3),
+    secondary = Color(0xFFF9811A), onSecondary = Color.Black,
+    secondaryContainer = Color(0xFF222222), onSecondaryContainer = Color(0xFFF5F5F5),
+    background = Color.Black, onBackground = Color(0xFFF5F5F5),
+    surface = Color.Black, onSurface = Color(0xFFF5F5F5),
+    surfaceVariant = Color(0xFF191919), onSurfaceVariant = Color(0xFFB8B8B8),
+    surfaceContainer = Color(0xFF151515), surfaceContainerLow = Color(0xFF101010),
+    surfaceContainerHigh = Color(0xFF222222), surfaceContainerHighest = Color(0xFF292929),
+    outline = Color(0xFF48484D), outlineVariant = Color(0xFF333333),
+)
+
 @Composable
 fun ForgePortTheme(content: @Composable () -> Unit) {
     MaterialTheme(
