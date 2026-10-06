@@ -44,7 +44,7 @@ assert 'UpdateProgressBanner(vm)' in ui
 assert 'vm::installDownloadedUpdate' in ui
 assert 'vm.resumePendingUpdateInstall()' in ui
 assert 'automatic_update_popups' in vm_source
-assert 'setAutomaticUpdatePopups' in vm_source
+assert 'updateAutomaticUpdatePopups' in vm_source
 assert 'installDownloadedUpdate()' in vm_source
 assert 'resumePendingUpdateInstall' in vm_source
 assert 'UpdateInstaller.requestInstallPermission' in vm_source

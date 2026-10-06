@@ -234,7 +234,7 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun setAutomaticUpdatePopups(enabled: Boolean) {
+    fun updateAutomaticUpdatePopups(enabled: Boolean) {
         automaticUpdatePopups = enabled
         updatePreferences.edit().putBoolean("automatic_update_popups", enabled).apply()
         if (!enabled) showUpdatePrompt = false
