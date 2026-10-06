@@ -78,9 +78,8 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun stageZip(uri: Uri) {
         runBusy {
-            val project = projectStore.stageZip(uri)
+            projectStore.stageZip(uri)
             projects = projectStore.listProjects()
-            statusMessage = "${project.name} staged locally."
         }
     }
 
@@ -88,7 +87,6 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
         runBusy {
             projectStore.delete(name)
             projects = projectStore.listProjects()
-            statusMessage = "$name deleted."
         }
     }
 
@@ -96,7 +94,6 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
         runBusy {
             withContext(Dispatchers.IO) { variableStore.put(name, value) }
             refreshVariables()
-            statusMessage = "Variable saved."
         }
     }
 
@@ -104,7 +101,6 @@ class ForgePortViewModel(application: Application) : AndroidViewModel(applicatio
         runBusy {
             withContext(Dispatchers.IO) { variableStore.delete(name) }
             refreshVariables()
-            statusMessage = "$name deleted."
         }
     }
 

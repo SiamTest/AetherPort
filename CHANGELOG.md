@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-alpha08
+
+- Staged projects now delete immediately when the trash button is tapped; the confirmation dialog has been removed.
+- Removed success banners after staging a project, deleting a staged project, saving a variable, or deleting a variable.
+- Failure messages remain visible so unsuccessful operations still provide feedback.
+- Added source-verification checks for the direct-delete and no-success-banner behavior.
+- Bumped Android version code to `3000008`.
+
 ## 3.0.0-alpha07
 
 - Removed the large **Local-first project tools** banner from Overview.

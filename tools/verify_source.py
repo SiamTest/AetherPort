@@ -11,6 +11,17 @@ ui = (root / "app/src/main/java/com/forgeport/android/ui/ForgePortApp.kt").read_
 assert 'private fun ProjectsScreen' in ui
 projects_block = ui.split('private fun ProjectsScreen', 1)[1].split('@Composable\nprivate fun ProjectCard', 1)[0]
 assert 'StageZipCard' not in projects_block
+assert 'AlertDialog(' not in projects_block
+assert 'deleteTarget' not in projects_block
+assert 'vm.deleteProject(project.name)' in projects_block
+
+vm_source = (root / "app/src/main/java/com/forgeport/android/ForgePortViewModel.kt").read_text()
+for success_banner in [
+    'staged locally.',
+    'Variable saved.',
+    'statusMessage = "$name deleted."',
+]:
+    assert success_banner not in vm_source, success_banner
 for marker in ['private fun GitHubScreen', 'private fun HuggingFaceScreen', 'private fun HfDownloadScreen']:
     block = ui.split(marker, 1)[1]
     assert 'StageZipCard(vm)' in block[:3500]
@@ -48,8 +59,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha07"' in build
-assert 'versionCode = 3000007' in build
+assert 'versionName = "3.0.0-alpha08"' in build
+assert 'versionCode = 3000008' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build

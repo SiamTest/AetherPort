@@ -349,7 +349,6 @@ private fun StageZipCard(vm: ForgePortViewModel) {
 
 @Composable
 private fun ProjectsScreen(vm: ForgePortViewModel) {
-    var deleteTarget by remember { mutableStateOf<String?>(null) }
     ScreenColumn(vm) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             SectionHeader("Your staged projects", "Stored only on this device until you delete them.")
@@ -358,18 +357,8 @@ private fun ProjectsScreen(vm: ForgePortViewModel) {
         if (vm.projects.isEmpty()) {
             ElevatedCard { Text("No staged projects. Upload a ZIP from GitHub, Hugging Face, or HF Download.", Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
-            vm.projects.forEach { project -> ProjectCard(project, onDelete = { deleteTarget = project.name }) }
+            vm.projects.forEach { project -> ProjectCard(project, onDelete = { vm.deleteProject(project.name) }) }
         }
-    }
-    deleteTarget?.let { name ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            icon = { Icon(Icons.Filled.Delete, contentDescription = null) },
-            title = { Text("Delete $name?") },
-            text = { Text("This removes the local staged project from this device.") },
-            confirmButton = { TextButton(onClick = { vm.deleteProject(name); deleteTarget = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } },
-        )
     }
 }
 

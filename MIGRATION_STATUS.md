@@ -31,6 +31,7 @@
 - Edge-to-edge Android rendering remains enabled.
 - The old Overview “Local-first project tools” banner has been removed.
 - A Material 3 Updates page and startup update prompt now provide direct GitHub Release updates.
+- Staged-project deletion is immediate with no confirmation dialog, and routine add/delete successes no longer create top status banners; errors are still surfaced.
 
 ## Build and release automation
 
