@@ -2,7 +2,7 @@
 
 Native, local-first Android port of ForgePort.
 
-**Version:** 3.0.0-alpha13
+**Version:** 3.0.0-alpha14
 **Package:** `com.forgeport.android`  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -45,15 +45,15 @@ The lightweight `gradlew` bootstrap downloads Gradle 8.11.1 on first use. Androi
 It:
 
 1. sets up Java 17 and Android SDK 36;
-2. runs `tools/verify_source.py`;
+2. runs source rules and the local stable-release script check;
 3. runs `testDebugUnitTest` and `lintDebug`;
 4. builds an APK;
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
 7. creates `forgeport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha13`) with the APK, checksum, and update manifest.
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha14`) with the APK, checksum, and update manifest.
 
-Alpha, beta and RC versions are marked as prereleases automatically.
+Every successful non-PR run publishes a stable GitHub release and marks it **Latest**, including when the application version still contains an alpha/beta/RC suffix. Rerunning a version uploads the new assets and promotes an existing prerelease/draft to a stable published release. The update manifest always reports `prerelease: false`.
 
 ### Optional persistent release signing
 

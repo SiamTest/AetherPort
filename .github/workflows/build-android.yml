@@ -53,7 +53,9 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Verify source rules
-        run: python3 tools/verify_source.py
+        run: |
+          python3 tools/verify_source.py
+          python3 tools/verify_stable_release.py
 
       - name: Run unit tests and lint
         run: ./gradlew --no-daemon testDebugUnitTest lintDebug
@@ -111,11 +113,7 @@ jobs:
           sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
           OUTPUT_NAME="$(basename "$OUTPUT")"
           CHECKSUM_NAME="${OUTPUT_NAME}.sha256"
-          PRERELEASE=false
-          case "$VERSION_NAME" in
-            *alpha*|*beta*|*rc*) PRERELEASE=true ;;
-          esac
-          VERSION_NAME="$VERSION_NAME" OUTPUT_NAME="$OUTPUT_NAME" CHECKSUM_NAME="$CHECKSUM_NAME" PRERELEASE="$PRERELEASE" python3 - <<'PYJSON'
+          VERSION_NAME="$VERSION_NAME" OUTPUT_NAME="$OUTPUT_NAME" CHECKSUM_NAME="$CHECKSUM_NAME" python3 - <<'PYJSON'
           import json
           import os
           from pathlib import Path
@@ -127,7 +125,7 @@ jobs:
               "version": version,
               "tag": tag,
               "repository": repo,
-              "prerelease": os.environ["PRERELEASE"].lower() == "true",
+              "prerelease": False,
               "apk": os.environ["OUTPUT_NAME"],
               "sha256": os.environ["CHECKSUM_NAME"],
               "apk_url": f"https://github.com/{repo}/releases/download/{tag}/{os.environ['OUTPUT_NAME']}",
@@ -157,18 +155,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          PRERELEASE_ARGS=()
-          case "$VERSION_NAME" in
-            *alpha*|*beta*|*rc*) PRERELEASE_ARGS+=(--prerelease) ;;
-          esac
-
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 dist/forgeport-update.json --clobber
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
           else
             gh release create "$RELEASE_TAG" \
               dist/*.apk dist/*.sha256 dist/forgeport-update.json \
               --target "$GITHUB_SHA" \
               --title "ForgePort Android $VERSION_NAME" \
               --generate-notes \
-              "${PRERELEASE_ARGS[@]}"
+              --prerelease=false \
+              --latest
           fi

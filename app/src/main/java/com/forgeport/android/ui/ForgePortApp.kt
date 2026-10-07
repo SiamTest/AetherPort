@@ -725,7 +725,7 @@ private fun UpdatesScreen(vm: ForgePortViewModel) {
                     }
                     Switch(
                         checked = vm.automaticUpdatePopups,
-                        onCheckedChange = vm::setAutomaticUpdatePopups,
+                        onCheckedChange = vm::updateAutomaticUpdatePopups,
                     )
                 }
                 HorizontalDivider()

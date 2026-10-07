@@ -44,7 +44,9 @@ assert 'UpdateProgressBanner(vm)' in ui
 assert 'vm::installDownloadedUpdate' in ui
 assert 'vm.resumePendingUpdateInstall()' in ui
 assert 'automatic_update_popups' in vm_source
-assert 'setAutomaticUpdatePopups' in vm_source
+assert 'fun updateAutomaticUpdatePopups(enabled: Boolean)' in vm_source
+assert 'fun setAutomaticUpdatePopups(' not in vm_source, 'This clashes with the delegated Boolean property setter on the JVM.'
+assert 'onCheckedChange = vm::updateAutomaticUpdatePopups' in ui
 assert 'installDownloadedUpdate()' in vm_source
 assert 'resumePendingUpdateInstall' in vm_source
 assert 'UpdateInstaller.requestInstallPermission' in vm_source
@@ -69,8 +71,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha13"' in build
-assert 'versionCode = 3000013' in build
+assert 'versionName = "3.0.0-alpha14"' in build
+assert 'versionCode = 3000014' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build

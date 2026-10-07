@@ -1,5 +1,18 @@
 # Changelog
 
+## Stable GitHub release workflow
+
+- Successful non-PR builds now create stable GitHub releases and mark them Latest, independent of the application version suffix.
+- Rebuilding an existing tag uploads the assets and clears prerelease/draft flags before marking it Latest.
+- The update manifest now declares `prerelease: false`. Added a local mock check of new/existing release branches and manifest generation, also run by CI.
+- Application version remains `3.0.0-alpha14` / `3000014` because this update changes release automation only.
+
+## 3.0.0-alpha14
+
+- Fixed the Kotlin/JVM compilation failure caused by `setAutomaticUpdatePopups(Boolean)` colliding with the generated setter for the delegated `automaticUpdatePopups` property. Renamed the action to `updateAutomaticUpdatePopups` and updated the Switch callback.
+- Preserved preference persistence and the behavior that disabling automatic pop-ups dismisses the current update prompt.
+- Added source regression checks for the non-conflicting action name and UI callback; version code is `3000014`.
+
 ## 3.0.0-alpha13
 
 - Added native Browse / Library / Downloads bottom navigation across the gallery section, with consistent black-and-orange screens and saved tab/scroll state. Library Continue reading opens the native reader directly; download notifications open Downloads.
