@@ -71,7 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_STORE_PASSWORD" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEY_PASSWORD" ]]; then
-            KEYSTORE_PATH="$RUNNER_TEMP/forgeport-release.jks"
+            KEYSTORE_PATH="$RUNNER_TEMP/aetherport-release.jks"
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
             echo "SIGNED_BUILD=true" >> "$GITHUB_ENV"
             echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
@@ -105,9 +105,9 @@ jobs:
           test -n "$APK"
           mkdir -p dist
           if [[ "$BUILD_TYPE" == "release" ]]; then
-            OUTPUT="dist/ForgePort-Android-${VERSION_NAME}.apk"
+            OUTPUT="dist/AetherPort-Android-${VERSION_NAME}.apk"
           else
-            OUTPUT="dist/ForgePort-Android-${VERSION_NAME}-debug.apk"
+            OUTPUT="dist/AetherPort-Android-${VERSION_NAME}-debug.apk"
           fi
           cp "$APK" "$OUTPUT"
           sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
@@ -131,7 +131,7 @@ jobs:
               "apk_url": f"https://github.com/{repo}/releases/download/{tag}/{os.environ['OUTPUT_NAME']}",
               "sha256_url": f"https://github.com/{repo}/releases/download/{tag}/{os.environ['CHECKSUM_NAME']}",
           }
-          Path("dist/forgeport-update.json").write_text(json.dumps(payload, indent=2) + "\n")
+          Path("dist/aetherport-update.json").write_text(json.dumps(payload, indent=2) + "\n")
           PYJSON
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=v$VERSION_NAME" >> "$GITHUB_ENV"
@@ -140,11 +140,11 @@ jobs:
       - name: Upload workflow APK
         uses: actions/upload-artifact@v4
         with:
-          name: ForgePort-Android-${{ github.run_number }}
+          name: AetherPort-Android-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/*.sha256
-            dist/forgeport-update.json
+            dist/aetherport-update.json
           if-no-files-found: error
           retention-days: 30
 
@@ -156,13 +156,13 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 dist/forgeport-update.json --clobber
+            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.sha256 dist/aetherport-update.json --clobber
             gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
           else
             gh release create "$RELEASE_TAG" \
-              dist/*.apk dist/*.sha256 dist/forgeport-update.json \
+              dist/*.apk dist/*.sha256 dist/aetherport-update.json \
               --target "$GITHUB_SHA" \
-              --title "ForgePort Android $VERSION_NAME" \
+              --title "AetherPort Android $VERSION_NAME" \
               --generate-notes \
               --prerelease=false \
               --latest

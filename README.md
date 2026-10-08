@@ -1,32 +1,49 @@
-# ForgePort Android
+# AetherPort Android
 
-Native, local-first Android port of ForgePort.
+AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.0-alpha14
-**Package:** `com.forgeport.android`  
+**Version:** 3.0.4
+**Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
 
 ## Local-first architecture
 
-ForgePort does not require a hosted ForgePort server. Project staging, ZIP work, variables, Git operations, and Google OAuth token generation run on the Android device. Internet access is needed for GitHub, Hugging Face, Google, app update checks, and website browsing.
+AetherPort does not require a hosted AetherPort server. Project staging, ZIP work, variables, Git operations, and Google OAuth token generation run on the Android device. Internet access is needed for GitHub, Hugging Face, Google, app update checks, and website browsing.
 
-- Jetpack Compose **Material 3** interface.
-- `Projects` contains only **Your staged projects**.
-- **Upload project ZIP** is available in GitHub, Hugging Face, and HF Download.
-- ZIPs are extracted into app-private storage with traversal and size checks.
+- Jetpack Compose **Material 3 Expressive principles** across the interface, implemented with the existing stable Material 3 APIs.
+- The navigation drawer has exactly six sections: **GitHub, Hugging Face, Google, E-Hentai, Variables, Updates**.
+- **GitHub** contains **Publish / Projects** tabs. **Hugging Face** contains **Publish / Download / Projects** tabs. ZIP folder selection and publishing stay within those sections; forms and scroll positions survive tab switches. Shared staged projects can be used by either source.
+- **Google** contains authorization and token exports. **E-Hentai** contains browsing, reading, library/history and downloads. **Variables** and **Updates** remain their own sections.
+- Staged projects contains only **Your staged projects**.
+- **Settings → Project ZIP folder** grants persistent read access to a folder. Its direct-child ZIPs appear newest first in both publish forms and refresh on return to the app or when opening the project picker. Choose a dedicated subfolder, such as Downloads/AetherPort; Android may prevent selecting the Downloads root. Existing staged projects remain available after the ZIP list.
+- A new mint-and-cyan portal mark appears on the launcher, splash screen, and drawer; Material 3 surfaces use the matching palette with a plain black dark background.
+- ZIPs are extracted only when publishing, with traversal and size checks. Temporary extracted copies are cleaned after success or failure; source ZIPs stay untouched. Choose ZIP/upload controls have been removed.
 - Variables are encrypted with Android Keystore-backed AES-GCM.
-- GitHub publishing automatically resolves `GITHUB_TOKEN_<OWNER>` from the repository owner.
+- **Variables → Repositories** saves, edits and removes GitHub repositories and Hugging Face Spaces as encrypted `GITHUB_REPOSITORY_<LABEL>` / `HF_REPOSITORY_<LABEL>` variables. Generic repository variables with those prefixes also work. Publishing forms have no repository text field: **Publish** opens the saved repository chooser, and selecting a target starts publishing. Hugging Face downloads use the same chooser.
+- GitHub publishing automatically resolves `GITHUB_TOKEN_<OWNER>` from the chosen repository owner.
 - GitHub and Hugging Face repository operations use JGit locally.
-- Commit message defaults/falls back to **Small bug fixes**.
+- Commit message defaults/falls back to **Small bug fixes**. New commits use the account behind the selected token for both author and committer, even in organization/shared repositories. GitHub uses its account-linked no-reply address; Hugging Face uses the verified account email. Identity lookup errors stop publishing instead of crediting the app. Earlier commits are unchanged.
+- Reader **Auto-scroll** offers a saved 1–60 second interval, immediate pause, page turns for RTL/LTR and gradual screen scrolling for vertical reading. It waits for loaded images and pauses during zoom, settings or background use.
+- Gallery downloads and resumes show a centered **1–100% slider** and exact count before starting. The first selected pages are downloaded in reading order (rounded up); existing pages are skipped and kept, and the selection persists for resume.
 - Google OAuth uses a Desktop OAuth `credentials.json`, local `127.0.0.1` callback, offline access, and exports `token.pickle` / `token.json`.
-- ForgePort has its own adaptive, round, monochrome, legacy, and Android 12+ splash logo resources.
-- **E-Hentai** has a black-and-orange native catalogue with Popular, Latest, search, a two-column cover grid, and a list toggle.
+- AetherPort has its own adaptive, round, monochrome, legacy, and Android 12+ splash logo resources.
+- **E-Hentai** has a black-and-orange native catalogue with Popular, Latest, search, an adaptive portrait-cover grid, and a list toggle.
 - **Filter** supports categories, language, uploader, minimum rating, and page-count ranges. Latest sends these to the website; Popular filters the site's ranked popular list using the official metadata API.
 - Gallery details show a portrait cover, title, author, metadata, grouped tags, library/refresh/download actions, one Chapter row, and an orange Start/Continue button.
 - **Browse / Library / Downloads** bottom tabs keep the gallery experience native. Library opens saved titles and reading progress; Downloads has offline counts, live progress, and pause/resume controls.
 - The Overview no longer shows the old “Local-first project tools” banner.
 - In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
+
+## Expressive UI and responsive layouts
+
+The shared theme uses accessible color roles, a clear typography hierarchy, pill-shaped actions, rounded fields/dialogs/navigation, and asymmetric cards. GitHub, Hugging Face, Google, Variables and Updates share the mint/cyan identity; native gallery screens retain black and orange.
+
+Stable Material 3 components provide semantics, ripples and minimum touch targets. Reusable wrappers add spring-based press/shape feedback, selection, card resizing and dialog entry. Navigation and tab changes use spring transitions; search, gallery metadata and reader controls expand smoothly. Animations use Compose's system duration scale and stop animating when Android animations are disabled. This implementation uses stable Compose APIs rather than the prerelease `MaterialExpressiveTheme` or polygon `MaterialShapes` APIs.
+
+Layouts measure their available window constraints, so tablet, landscape and split-screen sizes work without device-type assumptions. Forms, gallery details and library content stop stretching at 840dp; the catalogue is bounded at 1200dp. Cover columns account for Android font scale, controls wrap, gallery cover/title content stacks when space is tight, dialogs scroll, and forms accommodate the keyboard.
+
+`ui/theme/ExpressivePreviews.kt` includes compact-phone, tablet-dark, landscape and 200% text component previews for Android Studio. `ResponsiveLayoutTest` checks phone/tablet boundaries and sweeps widths of 240–1200dp and font scales up to 200%. These logic checks and previews do not replace device/emulator verification.
 
 ## Build locally
 
@@ -50,8 +67,8 @@ It:
 4. builds an APK;
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
-7. creates `forgeport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.0-alpha14`) with the APK, checksum, and update manifest.
+7. creates `aetherport-update.json`; and
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.4`) with the APK, checksum, and update manifest.
 
 Every successful non-PR run publishes a stable GitHub release and marks it **Latest**, including when the application version still contains an alpha/beta/RC suffix. Rerunning a version uploads the new assets and promotes an existing prerelease/draft to a stable published release. The update manifest always reports `prerelease: false`.
 
@@ -72,7 +89,7 @@ Do not use a disposable signing key for production installs. Android requires fu
 
 ## In-app updates
 
-ForgePort checks `Chowdhury-Siam/ForgePort` GitHub Releases when the app opens. The navigation drawer and Overview also expose an **Updates** page for manual checks.
+AetherPort checks GitHub Releases when the app opens. GitHub Actions builds default to the repository that built the APK (`GITHUB_REPOSITORY`), so forked or renamed deployments use their own releases. Local builds fall back to `Chowdhury-Siam/ForgePort`. The navigation drawer and workspace also expose an **Updates** page for manual checks.
 
 The update flow:
 
@@ -86,7 +103,11 @@ The update flow:
 
 The **Automatic update pop-ups** preference is enabled by default and is stored locally. Disabling it does not disable update checks; it only suppresses the automatic prompt. Manual checks remain available from **Updates**.
 
-The default update repository can be overridden at build time with:
+Use **Updates → Change update repository** to correct an older build's source with an `owner/repository` value or GitHub repository URL. The selection persists. For private releases, save the matching `GITHUB_TOKEN_<OWNER>` variable (or one unambiguous `GITHUB_TOKEN` variable) in **Variables**. The existing encrypted variable store is reused; credentials are sent only to the HTTPS GitHub API, and private APK/checksum downloads use the release-asset API. Missing repositories, expired tokens, rate limits and unpublished releases now have actionable messages.
+
+Version `3.0.4` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
+
+The default update repository can also be overridden at build time with:
 
 ```bash
 ./gradlew assembleDebug -PupdateGithubRepository=owner/repository
@@ -97,7 +118,7 @@ For actual in-place updates, every installed APK and future update APK must use 
 ## E-Hentai browsing
 
 Open **E-Hentai** from the navigation drawer or Overview. The native catalogue
-uses a black background, orange controls, and two portrait covers per row.
+uses a black background, orange controls, and portrait covers that adapt to window width and text size.
 **Popular** shows the site's popularity-ranked list; **Latest** shows recent
 results. Use the search icon to search titles and tags, the grid icon to toggle
 between covers and a list, and the menu to refresh or open **Account & access** for sign-in/access checks.
@@ -134,8 +155,13 @@ and **Vertical scrolling**. Pinch or double-tap to zoom, tap to show/hide
 controls, and use the page slider or previous/next buttons to move around.
 Reading progress and the selected reading mode are remembered locally.
 
+The catalogue begins loading on app launch. While **Browse** is visible, the first six gallery indexes are warmed in the background without adding them to History or Library. Opening a gallery publishes its metadata after the first index response instead of waiting for every thumbnail index. Missing page links are resolved on demand and persisted for later visits. First-time network access still takes time; warmed gallery details can open from local metadata.
+
+Opening gallery details automatically caches the current/resume page and the next **20 pages**. Reading advances that window, including slider jumps and vertical reading. Preloading is cancelled when leaving the screen, reuses validated image transfers, and stops on access, network or image-limit errors. Page locks prevent duplicate transfers while allowing the foreground page to load alongside another background page. This is preview caching, separate from permanent offline downloads.
+
+
 Open **Library** for saved galleries and **Downloads** for offline progress
-from the bottom navigation or drawer. Tapping a download notification opens
+from the bottom navigation or drawer. **Library → History** lists visited galleries in recent order. A gallery's overflow menu provides **Delete history** (clears its visit and reading progress) and **Remove from library** (removes its saved flag). **Delete all history** is available in the Library overflow menu with confirmation. These actions preserve offline downloads; **Remove downloads** remains separate. Tapping a download notification opens
 Downloads. Gallery downloads use a foreground service and a
 notification, continue when the app is backgrounded, and can be paused. Resume
 skips completed pages, including after an app restart. Successfully downloaded
@@ -157,7 +183,7 @@ the native **Download gallery** action saves pages for offline reading.
 Website availability, account restrictions, and image limits remain in effect.
 
 The implementation follows the supplied Aniyomi reference's details / continue
-reading / reader / downloads flow using ForgePort's existing Compose and OkHttp
+reading / reader / downloads flow using AetherPort's existing Compose and OkHttp
 stack. jsoup handles gallery HTML parsing; the Aniyomi app itself is not embedded.
 
 ### Gallery verification
@@ -168,7 +194,7 @@ download interruption handling, service declarations, and reader wiring.
 parsing, URL validation, image-host restrictions, and quota/error responses.
 `GalleryCatalogTest` checks both feed URLs, encoded filters, pagination cursors,
 thumbnail/compact layouts, ranked Popular filtering, empty results, and invalid
-filter values, and automatic-paging guards. Existing CI
+filter values, and automatic-paging guards. `GalleryPrefetchTest` checks the 20-page window and history clearing; `UpdateSourceTest` checks repository normalization and credential host boundaries. Existing CI
 runs these tests with `testDebugUnitTest` and Android lint before creating an APK.
 
 On a device, check distinct Popular/Latest results, search, each filter and
@@ -183,7 +209,7 @@ download on Android 13+; declining it does not prevent the foreground service.
 
 1. In Google Cloud, create an OAuth client of type **Desktop app**.
 2. Download its `credentials.json`.
-3. Open **Google OAuth** in ForgePort Android.
+3. Open **Google OAuth** in AetherPort Android.
 4. Choose `credentials.json` and authorize in the system browser.
 5. Save `token.pickle` and/or `token.json`.
 
@@ -200,11 +226,11 @@ Repository: https://github.com/chowdhury-siam/example
 Variable:   GITHUB_TOKEN_CHOWDHURY_SIAM
 ```
 
-There is no GitHub token selector on the GitHub publishing page. ForgePort matches the token automatically from the repository owner.
+There is no GitHub token selector on the GitHub publishing page. AetherPort matches the token automatically from the repository owner.
 
 ## Local-data security
 
 - Staged projects live in app-private storage.
 - Saved variable values are encrypted using Android Keystore-backed AES-GCM.
-- Google client credentials and generated tokens are not sent to a ForgePort server.
+- Google client credentials and generated tokens are not sent to a AetherPort server.
 - File access uses Android's document picker rather than broad storage permissions.

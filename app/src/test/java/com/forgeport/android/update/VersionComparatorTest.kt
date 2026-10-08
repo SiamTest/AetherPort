@@ -13,6 +13,8 @@ class VersionComparatorTest {
 
     @Test
     fun stableReleaseIsNewerThanPrerelease() {
+        assertTrue(VersionComparator.isNewer("3.0.0", "3.0.0-alpha15"))
+        assertFalse(VersionComparator.isNewer("3.0.0-alpha15", "3.0.0"))
         assertTrue(VersionComparator.isNewer("3.0.0", "3.0.0-rc2"))
         assertTrue(VersionComparator.isNewer("3.0.0-rc1", "3.0.0-beta9"))
     }

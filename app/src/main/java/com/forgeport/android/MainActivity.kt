@@ -9,8 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.forgeport.android.gallery.GalleryDownloadService
-import com.forgeport.android.ui.ForgePortApp
-import com.forgeport.android.ui.theme.ForgePortTheme
+import com.forgeport.android.ui.AetherPortApp
+import com.forgeport.android.ui.theme.AetherPortTheme
 
 class MainActivity : ComponentActivity() {
     private var galleryLibraryRequest by mutableIntStateOf(0)
@@ -19,8 +19,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (intent.getBooleanExtra(GalleryDownloadService.OPEN_LIBRARY, false)) galleryLibraryRequest++
         setContent {
-            ForgePortTheme {
-                ForgePortApp(galleryLibraryRequest = galleryLibraryRequest)
+            AetherPortTheme {
+                AetherPortApp(galleryLibraryRequest = galleryLibraryRequest)
             }
         }
     }

@@ -23,7 +23,7 @@ object UpdateInstaller {
 
     fun launchInstaller(context: Context, apk: File) {
         if (!apk.isFile) error("The downloaded update APK is missing.")
-        if (!canInstallPackages(context)) error("ForgePort is not allowed to install update packages yet.")
+        if (!canInstallPackages(context)) error("AetherPort is not allowed to install update packages yet.")
 
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
         val installIntent = Intent(Intent.ACTION_VIEW).apply {

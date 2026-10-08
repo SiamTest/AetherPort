@@ -1,5 +1,52 @@
 # Changelog
 
+## 3.0.4
+
+- Applied Material 3 Expressive principles using stable Compose components: mint/cyan and gallery-orange color roles, stronger typography, varied rounded/asymmetric shapes, and consistent spacing.
+- Added spring-based navigation and tab transitions, interruptible press/selection feedback, button shape changes, dialog entry, and expanding gallery/search/reader controls. Compose animations honor Android's animator duration scale, including disabled animations.
+- Bounded forms/details/library on wide windows; overview cards gain columns when space allows. Gallery columns follow available width and font scale. Header content stacks and action/filter chips wrap on narrow windows.
+- Long dialog content scrolls, forms accommodate the keyboard, fixed-width gallery actions are removed, and reader status stays compact. Existing publishing, account, gallery preload/download, and update behavior is retained.
+- Added phone/tablet/landscape/large-font component previews and responsive-layout boundary/sweep tests. Version code is `3000020`.
+
+## 3.0.3 — Saved repositories and ZIP folders
+
+- Variables now has Credentials/Repositories tabs. Save, edit or remove GitHub repositories and Hugging Face Spaces once; repository values reuse encrypted variable storage and are validated/normalized. Existing generic repository variables are supported.
+- Removed repository text fields from GitHub Publish, Hugging Face Publish and Hugging Face Download. The action button opens a centered saved-repository chooser; selecting a target performs the requested action, with an empty-state link directly to repository management.
+- Added Settings via the app-bar gear for a persisted, read-only Project ZIP folder. Direct-child ZIPs appear newest first in both publishers, with deterministic date ties and automatic/manual refresh. Old staged projects remain available.
+- Removed Choose ZIP/upload cards. Publishing validates the source is still in the selected tree, safely extracts it to temporary private staging and cleans that copy after the operation. Original ZIPs are never deleted. Lost folder access has a recovery message.
+- Stable version `3.0.3`, code `3000019`; account commit attribution, gallery features, existing storage and the stable/Latest release workflow are retained.
+
+## 3.0.2 — Account commits and gallery controls
+
+- New GitHub/Hugging Face commits use the account behind the publishing token as author and committer, including when publishing to someone else’s or an organization’s repository. GitHub uses an account-linked no-reply email; Hugging Face uses the verified account email. Failed identity lookup stops publishing instead of falling back to the app name. Existing commits are unchanged.
+- Added reader auto-scroll with a saved 1–60 second interval and immediate pause. Paged modes advance one image; vertical mode scrolls most of a screen to preserve tall-image reading. It waits for image loading, pauses during zoom/settings/background use, and stops at the end.
+- All gallery download/resume entry points open a centered 1–100% slider with the exact page count before starting. The selection downloads the first pages in reading order, rounds up, persists for resume, skips existing pages and never removes previously downloaded pages. Progress and completion messages reflect the selected count. Cancelling starts no download.
+- Stable version `3.0.2`, code `3000018`; existing app data, six sections and stable/Latest release automation are retained.
+
+## 3.0.1 — Complete service sections
+
+- Grouped GitHub publishing, ZIP importing and staged-project management within GitHub's Publish/Projects tabs.
+- Grouped Hugging Face publishing, ZIP importing, repository downloads and staged-project management within Hugging Face's Publish/Download/Projects tabs. Removed separate app-level Projects and Download routes.
+- Saved each tab's form fields and scroll state when switching tabs or sections. Removed projects/tokens are replaced with an available selection when returning to a form.
+- Kept Google authorization/token exports and E-Hentai browse/reader/library/history/downloads in their existing sections. The drawer still has exactly six entries and the AetherPort logo/theme remains unchanged.
+- Bumped stable version to `3.0.1`, code `3000017`; stable/Latest publishing is retained.
+
+## 3.0.0 — AetherPort stable
+
+- Rebranded ForgePort to AetherPort across the launcher, app screens, OAuth completion page, update/download messaging, commit identity and release assets.
+- Introduced a mint-and-cyan portal logo with adaptive, round, monochrome and legacy launcher variants; refreshed splash and drawer branding and the Material 3 palette.
+- Reduced the drawer to GitHub, Hugging Face, Google, E-Hentai, Variables and Updates in that order. The workspace uses the same six sections. Staged projects remain accessible from GitHub/Hugging Face; repository ZIP downloads are available within Hugging Face.
+- Changed the version from `3.0.0-alpha15` to stable `3.0.0` with monotonically increased code `3000016`. Stable/Latest release automation now emits AetherPort APKs and `aetherport-update.json`.
+- Preserved applicationId, encrypted storage keys, gallery data and updater repository behavior for existing installations. Added menu/rebrand checks and a stable-after-alpha version regression.
+
+## 3.0.0-alpha15
+
+- Fixed update-source selection: Actions builds use their publishing repository, with a persistent repository override in Updates. Private releases use encrypted saved GitHub variables and authenticated API asset downloads; missing source, token and publication errors explain the next step. Only the selected APK’s matching checksum is used.
+- Start catalogue loading on launch and warm the first six gallery indexes while Browse is visible. Gallery details appear after one response; later thumbnail index pages load on demand and remain cached.
+- Automatically cache the resume/current page plus the next 20 on gallery entry and as reading advances. Leaving cancels preloading; page locks permit foreground reads without waiting behind another background image.
+- Added recent History, per-gallery Delete history, confirmed Delete all history, and explicit Remove from library controls. Reading/visit state, saved membership and permanent downloads are independent.
+- Added targeted Kotlin tests and source checks. Version code is `3000015`; the existing stable/Latest GitHub release workflow remains enabled.
+
 ## Stable GitHub release workflow
 
 - Successful non-PR builds now create stable GitHub releases and mark them Latest, independent of the application version suffix.

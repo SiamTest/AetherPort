@@ -77,7 +77,7 @@ class GoogleOAuthService(private val context: Context) {
                 val responseHtml = """
                     <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
                     <body style="font-family:sans-serif;background:#111;color:#fff;padding:32px">
-                    <h2>ForgePort authorization received</h2><p>You can return to the ForgePort app.</p></body></html>
+                    <h2>AetherPort authorization received</h2><p>You can return to the AetherPort app.</p></body></html>
                 """.trimIndent()
                 val writer = OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8)
                 writer.write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${responseHtml.toByteArray().size}\r\nConnection: close\r\n\r\n$responseHtml")

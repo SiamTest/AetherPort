@@ -2,11 +2,18 @@ package com.forgeport.android.data
 
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
+import com.forgeport.android.model.ProjectArchive
+import com.forgeport.android.model.newestArchives
 import com.forgeport.android.model.StagedProject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -17,6 +24,59 @@ import java.util.zip.ZipInputStream
 
 class ProjectStore(private val context: Context) {
     private val projectsRoot = File(context.filesDir, "staged_projects")
+    private val settings = context.getSharedPreferences("forgeport_project_settings", Context.MODE_PRIVATE)
+    val folderUri: String? get() = settings.getString("zip_folder", null)
+    val folderName: String get() = settings.getString("zip_folder_name", "").orEmpty()
+
+    suspend fun configureFolder(uri: Uri) = withContext(Dispatchers.IO) {
+        require(uri.scheme == "content") { "Choose a folder using Android's folder picker." }
+        val folder = requireNotNull(DocumentFile.fromTreeUri(context, uri)) { "This folder is unavailable." }
+        check(folder.isDirectory && folder.canRead()) { "Choose a readable ZIP folder." }
+        val old = folderUri
+        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        settings.edit().putString("zip_folder", uri.toString()).putString("zip_folder_name", folder.name.orEmpty()).apply()
+        if (old != null && old != uri.toString()) releaseFolder(old)
+    }
+
+    suspend fun clearFolder() = withContext(Dispatchers.IO) {
+        val old = folderUri
+        settings.edit().remove("zip_folder").remove("zip_folder_name").apply()
+        old?.let(::releaseFolder)
+    }
+
+    private fun releaseFolder(uri: String) {
+        runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    }
+
+    suspend fun listArchives(): List<ProjectArchive> = withContext(Dispatchers.IO) {
+        val tree = folderUri?.let(Uri::parse) ?: return@withContext emptyList()
+        check(context.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isReadPermission }) {
+            "Folder access was lost. Choose the ZIP folder again in Settings."
+        }
+        check(DocumentFile.fromTreeUri(context, tree)?.isDirectory == true) { "The ZIP folder was moved or deleted. Choose it again in Settings." }
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_LAST_MODIFIED, DocumentsContract.Document.COLUMN_SIZE)
+        val archives = mutableListOf<ProjectArchive>()
+        val cursor = context.contentResolver.query(children, columns, null, null, null)
+            ?: error("The ZIP folder is unavailable. Choose it again in Settings.")
+        cursor.use {
+            while (it.moveToNext()) {
+                currentCoroutineContext().ensureActive()
+                val name = it.getString(1).orEmpty()
+                if (it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR || !name.endsWith(".zip", ignoreCase = true)) continue
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, it.getString(0))
+                archives += ProjectArchive(uri.toString(), name, if (it.isNull(3)) 0L else it.getLong(3).coerceAtLeast(0), if (it.isNull(4)) 0L else it.getLong(4).coerceAtLeast(0))
+            }
+        }
+        newestArchives(archives)
+    }
+
+    suspend fun stageArchive(uri: String): StagedProject {
+        // Rescan the configured tree rather than accepting an arbitrary external URI.
+        check(listArchives().any { it.uri == uri }) { "This ZIP is no longer in the configured folder. Refresh the project list." }
+        return stageZip(Uri.parse(uri))
+    }
 
     suspend fun stageZip(uri: Uri): StagedProject = withContext(Dispatchers.IO) {
         projectsRoot.mkdirs()
@@ -57,6 +117,7 @@ class ProjectStore(private val context: Context) {
                 }
                 ZipInputStream(counting).use { zip ->
                     while (true) {
+                        currentCoroutineContext().ensureActive()
                         val entry = zip.nextEntry ?: break
                         fileCount++
                         require(fileCount <= MAX_ZIP_ENTRIES) { "ZIP contains more than 25,000 entries." }
@@ -68,6 +129,7 @@ class ProjectStore(private val context: Context) {
                             BufferedOutputStream(FileOutputStream(target)).use { out ->
                                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                                 while (true) {
+                                    currentCoroutineContext().ensureActive()
                                     val read = zip.read(buffer)
                                     if (read <= 0) break
                                     extractedBytes += read

@@ -44,6 +44,15 @@ class GalleryParserTest {
     }
 
     @Test
+    fun firstIndexCanShowDetailsWithoutFetchingEveryThumbnailPage() {
+        val partial = GalleryParser.index(galleryUrl, html.replace("3 pages", "100 pages"))
+        assertEquals(100, partial.total)
+        assertEquals("Sample & Story", partial.gallery.title)
+        assertEquals(3, partial.links.size)
+        assertFalse(partial.links.containsKey(40))
+    }
+
+    @Test
     fun indexesCanBeMergedWithoutDroppingLaterPages() {
         val first = GalleryParser.pageLinks(galleryUrl, "<div id='gdt'><a href='/s/aaaa/42-1'>One</a></div>")
         val later = GalleryParser.pageLinks(galleryUrl, "<div id='gdt'><a href='/s/bbbb/42-2'>Two</a><a href='/s/cccc/42-3'>Three</a></div>")

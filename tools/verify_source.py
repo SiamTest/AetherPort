@@ -7,7 +7,7 @@ assert not (root / "Dockerfile").exists()
 assert not (root / "railway.toml").exists()
 assert not (root / "render.yaml").exists()
 
-ui = (root / "app/src/main/java/com/forgeport/android/ui/ForgePortApp.kt").read_text()
+ui = (root / "app/src/main/java/com/forgeport/android/ui/AetherPortApp.kt").read_text()
 assert 'private fun ProjectsScreen' in ui
 projects_block = ui.split('private fun ProjectsScreen', 1)[1].split('@Composable\nprivate fun ProjectCard', 1)[0]
 assert 'StageZipCard' not in projects_block
@@ -15,22 +15,20 @@ assert 'AlertDialog(' not in projects_block
 assert 'deleteTarget' not in projects_block
 assert 'vm.deleteProject(project.name)' in projects_block
 
-vm_source = (root / "app/src/main/java/com/forgeport/android/ForgePortViewModel.kt").read_text()
+vm_source = (root / "app/src/main/java/com/forgeport/android/AetherPortViewModel.kt").read_text()
 for success_banner in [
     'staged locally.',
     'Variable saved.',
     'statusMessage = "$name deleted."',
 ]:
     assert success_banner not in vm_source, success_banner
-for marker in ['private fun GitHubScreen', 'private fun HuggingFaceScreen', 'private fun HfDownloadScreen']:
-    block = ui.split(marker, 1)[1]
-    assert 'StageZipCard(vm)' in block[:3500]
+assert 'StageZipCard' not in ui and 'Choose ZIP' not in ui
 assert 'Small bug fixes' in ui
 assert 'Saved GitHub variable' not in ui
 assert 'CenterAlignedTopAppBar' in ui
 assert 'ElevatedCard' in ui
 assert 'FilledTonalButton' in ui
-assert 'ic_forgeport_mark' in ui
+assert 'ic_aetherport_mark' in ui
 assert 'Local-first project tools' not in ui
 assert 'private fun UpdatesScreen' in ui
 assert 'Check for updates' in ui
@@ -71,8 +69,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.0-alpha14"' in build
-assert 'versionCode = 3000014' in build
+assert 'versionName = "3.0.4"' in build
+assert 'versionCode = 3000020' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
@@ -91,7 +89,7 @@ assert 'android.permission.REQUEST_INSTALL_PACKAGES' in manifest
 assert 'androidx.core.content.FileProvider' in manifest
 assert '@xml/file_paths' in manifest
 for resource in [
-    'app/src/main/res/drawable/ic_forgeport_mark.xml',
+    'app/src/main/res/drawable/ic_aetherport_mark.xml',
     'app/src/main/res/mipmap-anydpi/ic_launcher.xml',
     'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
     'app/src/main/res/xml/file_paths.xml',
@@ -131,7 +129,7 @@ for marker in [
     "actions/upload-artifact@v4",
     "gh release create",
     "contents: write",
-    "forgeport-update.json",
+    "aetherport-update.json",
 ]:
     assert marker in workflow
 assert 'sdkmanager tools' not in workflow
@@ -178,7 +176,7 @@ catalog = (gallery_root / 'GalleryCatalog.kt').read_text()
 for marker in ['1023 - filters.categories.sum()', 'f_srdd', 'f_spf', 'f_spt', 'isListUrl', 'GalleryParser::isImageUrl']:
     assert marker in catalog, marker
 catalog_ui = (gallery_root / 'GalleryCatalogScreen.kt').read_text()
-for marker in ['GalleryCatalogMode.POPULAR', 'GalleryCatalogMode.LATEST', 'GalleryFilterDialog(', 'GridCells.Fixed(2)', 'vm.browse(more = true)', 'No galleries found']:
+for marker in ['GalleryCatalogMode.POPULAR', 'GalleryCatalogMode.LATEST', 'GalleryFilterDialog(', 'GridCells.Fixed(columns)', 'vm.browse(more = true)', 'No galleries found']:
     assert marker in catalog_ui, marker
 for marker in ['chunked(25)', 'https://api.e-hentai.org/api.php', 'Semaphore(3)', 'thumbnailFile', 'writeImage(imageUrl, target, page)']:
     assert marker in repository, marker
@@ -193,4 +191,103 @@ for marker in ['PullToRefreshBox(', 'vm.catalog.canLoadMore(lastVisible)', 'reme
 catalog_vm = (gallery_root / 'GalleryViewModel.kt').read_text()
 for marker in ['refresh && sameSelection', 'refreshing = false', 'if (more) previous + page.items else page.items', 'page.next != cursor', 'error == null && next != null']:
     assert marker in catalog_vm, marker
+
+# Preload stays bounded and uses the same validated image/cache pipeline as reading.
+assert 'browse()' in catalog_vm.split('init {', 1)[1]
+assert 'state.items.take(6)' in catalog_ui
+assert 'repository.loadGallery(item.url)' in catalog_ui
+assert 'while (links.size < parsed.total)' not in repository
+assert 'parsed.links[it].orEmpty()' in repository
+assert 'pageLink(gallery, index)' in repository
+assert 'preloadPages(current)' in repository
+assert 'vm.repository.prefetch(gallery, current)' in reader
+assert 'Delete all history' in screens and 'Remove from library' in screens
+assert 'else if (history) it.visitedAt > 0 else it.saved' in screens
+assert 'providers.environmentVariable("GITHUB_REPOSITORY")' in build
+assert 'UpdateSource.canAuthenticate(url)' in update_service
+assert 'variables.resolveGitHubToken' in update_service
+assert 'assetUrl(apkAsset)' in update_service
+
+# The drawer exposes only the six product sections; secondary tools remain reachable inside them.
+import re
+menu = ui.split('private val destinations = listOf(', 1)[1].split('\n)', 1)[0]
+assert re.findall(r'Destination\("([^"]+)", "([^"]+)"', menu) == [
+    ('github', 'GitHub'), ('huggingface', 'Hugging Face'), ('google', 'Google'),
+    ('ehentai', 'E-Hentai'), ('variables', 'Variables'), ('updates', 'Updates'),
+]
+assert 'composable("github") { RepositorySection(vm, huggingFace = false)' in ui
+assert 'composable("huggingface") { RepositorySection(vm, huggingFace = true)' in ui
+assert 'composable("projects")' not in ui and 'composable("download")' not in ui
+section = ui.split('private fun RepositorySection', 1)[1].split('@Composable', 1)[0]
+assert 'listOf("Publish", "Download", "Projects") else listOf("Publish", "Projects")' in section
+assert 'rememberSaveable(huggingFace)' in section
+assert 'tabState.SaveableStateProvider(tab)' in section
+for target in ['ProjectsScreen(vm)', 'HfDownloadScreen(vm, manageRepositories)', 'HuggingFaceScreen(vm, manageRepositories)', 'GitHubScreen(vm, manageRepositories)']:
+    assert target in section, target
+forms = ui.split('private fun GitHubScreen', 1)[1].split('private fun GoogleOAuthScreen', 1)[0]
+assert 'by remember { mutableStateOf(' not in forms
+assert 'vm.publishProjects.none { it.id == project }' in forms
+assert 'token !in vm.hfTokenNames' in forms
+assert 'Version ${BuildConfig.VERSION_NAME} • Stable' in ui
+assert 'android:label="@string/app_name"' in manifest
+assert 'applicationId = "com.forgeport.android"' in build, 'Preserve existing installs and their private storage.'
+assert '>AetherPort<' in (root / 'app/src/main/res/values/strings.xml').read_text()
+assert 'AetherPort-Android-${VERSION_NAME}' in workflow
+assert '--title "AetherPort Android $VERSION_NAME"' in workflow
+assert (root / 'app/src/main/res/drawable/ic_aetherport_monochrome.xml').is_file()
+assert 'ic_aetherport_monochrome' in (root / 'app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml').read_text()
+assert 'Theme.AetherPort' in manifest
 print("source verification: OK")
+
+# Account identity is shared by both publishers; never silently fall back to the app.
+assert '.setAuthor(identity.name, identity.email)' in repo
+assert '.setCommitter(identity.name, identity.email)' in repo
+assert '.setAuthor("AetherPort"' not in repo and '.setAuthor("ForgePort"' not in repo
+for marker in ['identity = githubIdentity(tokenPair.second)', 'identity = huggingFaceIdentity(token)', 'https://api.github.com/user', 'https://huggingface.co/api/whoami-v2', 'followRedirects(false)', 'followSslRedirects(false)']:
+    assert marker in repo, marker
+for marker in ['galleryDownloadPageCount(gallery.pages.size, percent)', 'for (index in 0 until target)', 'download_percent_', 'setDownloadPercent']:
+    assert marker in repository, marker
+for marker in ['Text("Download gallery")', 'valueRange = 1f..100f', 'confirmedPercent', 'showSelection = true']:
+    assert marker in screens, marker
+assert 'vm.download(gallery)' not in screens
+assert 'repository.downloadPercent(gallery)' in service
+assert 'repository.download(gallery, percent)' in service
+for marker in ['Text("Auto-scroll")', 'valueRange = 1f..60f', 'Lifecycle.State.RESUMED', 'readyPages[current] != true', 'animateScrollBy(viewport * 0.85f, animationSpec = ExpressiveMotion.spatial())', 'pager.animateScrollToPage(current + 1, animationSpec = ExpressiveMotion.spatial())', 'Pause auto-scroll', 'zoomed || settings || autoScrollDialog']:
+    assert marker in reader, marker
+print("account attribution and gallery controls: OK")
+
+# A single persisted folder powers both publishers; original archives are never deleted.
+pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.kt').read_text()
+project_store = (root / 'app/src/main/java/com/forgeport/android/data/ProjectStore.kt').read_text()
+assert 'OutlinedTextField(repo,' not in forms and 'var repo by' not in forms
+assert forms.count('if (chooseRepository) RepositoryChooser(') == 3
+assert forms.count('ProjectSourcePicker(vm, project)') == 2
+assert 'SavedRepositoriesEditor(vm)' in ui and 'Icons.Filled.Settings' in ui
+for marker in ['ActivityResultContracts.OpenDocumentTree()', 'Choose folder', 'Manage in Variables', 'vm.refreshArchives()', 'vm.saveRepository(label, repository, huggingFace, editingName)']:
+    assert marker in pickers, marker
+for marker in ['takePersistableUriPermission', 'Intent.FLAG_GRANT_READ_URI_PERMISSION', 'buildChildDocumentsUriUsingTree', 'COLUMN_LAST_MODIFIED', 'newestArchives(archives)', 'listArchives().any { it.uri == uri }', 'MAX_UPLOAD_BYTES', 'MAX_EXTRACTED_BYTES', 'safeTarget(dir, entry.name)']:
+    assert marker in project_store, marker
+assert 'DocumentsContract.deleteDocument' not in project_store
+assert 'finally { withContext(NonCancellable) { projectStore.delete(temporary.name) } }' in vm_source
+assert 'variableStore.savedRepositories()' in vm_source
+assert 'RepoParsing.repositoryKind(name)' in vars_src
+print('saved repositories and ZIP-folder publishing: OK')
+
+# Every native screen shares stable Material 3 styling and responsive layout decisions.
+components = (root / 'app/src/main/java/com/forgeport/android/ui/theme/ExpressiveComponents.kt').read_text()
+theme = (root / 'app/src/main/java/com/forgeport/android/ui/theme/Theme.kt').read_text()
+assert 'typography = AetherPortTypography' in theme
+assert 'bottomStart = 12.dp' in theme
+for marker in ['collectIsPressedAsState()', 'RoundedCornerShape(corner.roundToInt()', 'ExpressiveMotion.spatial()', 'verticalScroll(rememberScrollState())', 'heightIn(min = 56.dp)']:
+    assert marker in components, marker
+for marker in ['popEnterTransition', 'AnimatedContent(', 'contentColumns(maxWidth.value', 'imePadding()', 'AdaptiveContent {']:
+    assert marker in ui, marker
+assert 'contentColumns(maxWidth.value - 24f' in catalog_ui
+assert 'sideBySideGalleryHeader(maxWidth.value' in screens
+assert 'Modifier.width(92.dp)' not in screens
+assert 'FlowRow(' in screens and 'FlowRow(' in catalog_ui
+for path in ['ui/AetherPortApp.kt', 'ui/RepositoryPickers.kt', 'ui/EhentaiScreen.kt', 'gallery/GalleryCatalogScreen.kt', 'gallery/GalleryScreens.kt', 'gallery/GalleryReaderScreen.kt']:
+    source = (root / 'app/src/main/java/com/forgeport/android' / path).read_text()
+    assert 'ExpressiveIconButton as IconButton' in source, path
+assert 'MaterialExpressiveTheme' not in theme, 'Keep compatible stable Material 3 APIs.'
+print('expressive components and responsive bindings: OK')

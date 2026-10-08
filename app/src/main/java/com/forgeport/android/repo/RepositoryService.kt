@@ -6,6 +6,9 @@ import com.forgeport.android.data.VariableStore
 import com.forgeport.android.model.OperationResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.transport.RefSpec
@@ -18,6 +21,7 @@ import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -26,6 +30,9 @@ class RepositoryService(
     private val projects: ProjectStore,
     private val variables: VariableStore,
 ) {
+    private val identityClient = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+        .callTimeout(30, TimeUnit.SECONDS).build()
+
     suspend fun publishGitHub(
         projectName: String,
         repoInput: String,
@@ -50,6 +57,7 @@ class RepositoryService(
                 branch = branch,
                 commitMessage = message,
                 targetPath = targetPath,
+                identity = githubIdentity(tokenPair.second),
             )
             result.copy(message = result.message + " Token: ${tokenPair.first}.")
         }.getOrElse { OperationResult(false, it.cleanMessage()) }
@@ -80,6 +88,7 @@ class RepositoryService(
                 branch = branch,
                 commitMessage = message,
                 targetPath = targetPath,
+                identity = huggingFaceIdentity(token),
             )
         }.getOrElse { OperationResult(false, it.cleanMessage()) }
     }
@@ -123,6 +132,7 @@ class RepositoryService(
         branch: String,
         commitMessage: String,
         targetPath: String,
+        identity: CommitIdentity,
     ): OperationResult {
         val tempRoot = File(context.cacheDir, "forgeport-push-${UUID.randomUUID()}").apply { mkdirs() }
         val repoDir = File(tempRoot, "repo")
@@ -151,8 +161,8 @@ class RepositoryService(
                     }
                     val commit = git.commit()
                         .setMessage(commitMessage)
-                        .setAuthor("ForgePort", "forgeport@localhost")
-                        .setCommitter("ForgePort", "forgeport@localhost")
+                        .setAuthor(identity.name, identity.email)
+                        .setCommitter(identity.name, identity.email)
                         .call()
                     git.push()
                         .setCredentialsProvider(credentials)
@@ -161,11 +171,33 @@ class RepositoryService(
                     return OperationResult(
                         ok = true,
                         message = "Published successfully to $branch.",
-                        log = "Commit ${commit.id.name.take(8)}",
+                        log = "Commit ${commit.id.name.take(8)} • ${identity.name}",
                     )
                 }
         } finally {
             tempRoot.deleteRecursively()
+        }
+    }
+
+    private fun githubIdentity(token: String): CommitIdentity {
+        val user = accountProfile("https://api.github.com/user", token, "GitHub")
+        check(user.optString("type") == "User") { "Use a GitHub personal account token to publish as your account." }
+        return CommitIdentity.github(user.optString("login"), user.optLong("id"), user.optString("name").takeUnless { it == "null" }.orEmpty())
+    }
+
+    private fun huggingFaceIdentity(token: String): CommitIdentity {
+        val user = accountProfile("https://huggingface.co/api/whoami-v2", token, "Hugging Face")
+        check(user.optString("type") == "user") { "Use a Hugging Face personal account token to publish as your account." }
+        return CommitIdentity.huggingFace(user.optString("name"), user.optString("fullname").takeUnless { it == "null" }.orEmpty(),
+            user.optString("email"), user.optBoolean("emailVerified"))
+    }
+
+    private fun accountProfile(url: String, token: String, service: String): JSONObject {
+        val request = Request.Builder().url(url).header("Authorization", "Bearer $token")
+            .header("Accept", "application/json").build()
+        return identityClient.newCall(request).execute().use { response ->
+            check(response.isSuccessful) { "$service account lookup failed (${response.code}). Check the selected token and try again." }
+            JSONObject(requireNotNull(response.body) { "$service account response was empty." }.string())
         }
     }
 

@@ -46,7 +46,6 @@ internal class GalleryRepository private constructor(private val context: Contex
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
     private val storageLock = Mutex()
     private val indexLock = Mutex()
-    // ponytail: one gallery lock limits simultaneous network image requests; per-page locks if online reading needs more throughput.
     private val coverSlots = Semaphore(3)
     private val catalogLock = Mutex()
     private var lastApiRequest = 0L
@@ -82,11 +81,11 @@ internal class GalleryRepository private constructor(private val context: Contex
                             info = json.optJSONObject("info")?.stringMap().orEmpty(),
                             tagGroups = json.optJSONObject("tagGroups")?.let { groups ->
                                 groups.keys().asSequence().associateWith { groups.getJSONArray(it).strings() }
-                            }.orEmpty(), author = json.optString("author"),
+                            }.orEmpty(), author = json.optString("author"), indexPageSize = json.optInt("indexPageSize", 40).coerceAtLeast(1),
                         )
                         check(gallery.key == directory.name && pages.size in 1..GalleryParser.MAX_PAGES)
-                        check(pages.withIndex().all { (index, link) -> GalleryParser.pageNumber(link, gallery.id) == index + 1 })
-                        gallery.copy(lastRead = lastRead(gallery), downloaded = countDownloaded(gallery))
+                        check(pages.withIndex().all { (index, link) -> link.isBlank() || GalleryParser.pageNumber(link, gallery.id) == index + 1 })
+                        gallery.copy(lastRead = lastRead(gallery), downloaded = countDownloaded(gallery), visitedAt = visitedAt(gallery))
                     }.getOrNull()
                 }.sortedBy { it.title.lowercase() }
                 initialized = true
@@ -100,20 +99,12 @@ internal class GalleryRepository private constructor(private val context: Contex
         indexLock.withLock {
             if (!refresh) galleries.value.firstOrNull { it.url == canonical }?.let { return@withLock it }
             val parsed = GalleryParser.index(canonical, text(canonical))
-            val links = parsed.links.toMutableMap()
-            var index = 1
-            while (links.size < parsed.total) {
-                currentCoroutineContext().ensureActive()
-                check(index <= parsed.total) { "The gallery index could not be completed." }
-                val more = GalleryParser.pageLinks(canonical, text("$canonical?p=$index"))
-                val before = links.size
-                more.filterKeys { it in 1..parsed.total }.forEach { (number, page) -> links.putIfAbsent(number, page) }
-                check(links.size > before) { "Some gallery pages are unavailable. Check Account & access from the menu and retry." }
-                index++
-                delay(350)
-            }
-            check((1..parsed.total).all(links::containsKey)) { "The gallery index contains missing pages." }
-            store(parsed.gallery.copy(pages = (1..parsed.total).map { links.getValue(it) }))
+            // Publish details after one response; resolve later thumbnail indexes only when needed.
+            check(parsed.links.containsKey(1)) { "The first gallery page is unavailable." }
+            store(parsed.gallery.copy(
+                pages = (1..parsed.total).map { parsed.links[it].orEmpty() },
+                indexPageSize = parsed.links.keys.max(),
+            ))
         }
     }
 
@@ -184,10 +175,10 @@ internal class GalleryRepository private constructor(private val context: Contex
         val previous = galleries.value.firstOrNull { it.key == gallery.key }
         val value = gallery.copy(
             saved = previous?.saved ?: gallery.saved,
-            lastRead = lastRead(gallery), downloaded = countDownloaded(gallery),
+            lastRead = lastRead(gallery), downloaded = countDownloaded(gallery), visitedAt = visitedAt(gallery),
         )
         writeMetadata(value)
-        mutableGalleries.update { list -> (list.filterNot { it.key == value.key } + value).sortedBy { it.title.lowercase() } }
+        mutableGalleries.update { list -> (list.filterNot { it.key == value.key } + value.copy(lastRead = lastRead(value), visitedAt = visitedAt(value))).sortedBy { it.title.lowercase() } }
         value
     }
 
@@ -197,6 +188,7 @@ internal class GalleryRepository private constructor(private val context: Contex
         val json = JSONObject().put("url", gallery.url).put("title", gallery.title)
             .put("category", gallery.category).put("language", gallery.language).put("uploader", gallery.uploader)
             .put("tags", JSONArray(gallery.tags)).put("pages", JSONArray(gallery.pages)).put("saved", gallery.saved)
+            .put("indexPageSize", gallery.indexPageSize)
             .put("cover", gallery.cover).put("author", gallery.author).put("info", JSONObject(gallery.info))
             .put("tagGroups", JSONObject().apply { gallery.tagGroups.forEach { (group, tags) -> put(group, JSONArray(tags)) } })
         val atomic = AtomicFile(File(directory, "metadata.json"))
@@ -215,32 +207,86 @@ internal class GalleryRepository private constructor(private val context: Contex
             val current = galleries.value.firstOrNull { it.key == gallery.key } ?: gallery
             val value = current.copy(saved = saved)
             writeMetadata(value)
-            mutableGalleries.update { list -> list.map { if (it.key == value.key) value else it } }
+            mutableGalleries.update { list -> list.map { if (it.key == value.key) it.copy(saved = saved) else it } }
         }
     }
 
     fun markRead(gallery: Gallery, page: Int) {
         val index = page.coerceIn(gallery.pages.indices)
-        preferences.edit().putInt("page_${gallery.key}", index).apply()
-        mutableGalleries.update { list -> list.map { if (it.key == gallery.key) it.copy(lastRead = index) else it } }
+        preferences.edit().putInt("page_${gallery.key}", index).putLong("visited_${gallery.key}", System.currentTimeMillis()).apply()
+        mutableGalleries.update { list -> list.map { if (it.key == gallery.key) it.copy(lastRead = index, visitedAt = visitedAt(gallery)) else it } }
+    }
+
+    fun markVisited(gallery: Gallery) {
+        preferences.edit().putLong("visited_${gallery.key}", System.currentTimeMillis()).apply()
+        mutableGalleries.update { list -> list.map { if (it.key == gallery.key) it.copy(visitedAt = visitedAt(gallery)) else it } }
+    }
+
+    fun clearHistory(gallery: Gallery? = null) {
+        val targets = if (gallery == null) galleries.value else listOf(gallery)
+        preferences.edit().apply {
+            targets.forEach { remove("page_${it.key}"); remove("visited_${it.key}") }
+        }.apply()
+        val keys = targets.map { it.key }.toSet()
+        mutableGalleries.update { list -> list.map { if (it.key in keys) it.withoutHistory() else it } }
+    }
+
+    private fun visitedAt(gallery: Gallery): Long = preferences.getLong("visited_${gallery.key}",
+        if (preferences.contains("page_${gallery.key}")) 1L else 0L)
+
+    suspend fun prefetch(gallery: Gallery, current: Int) {
+        for (index in gallery.preloadPages(current)) {
+            currentCoroutineContext().ensureActive()
+            try {
+                pageFile(gallery, index)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                return // Foreground reading shows retry and access errors.
+            }
+            delay(600)
+        }
+    }
+
+    private suspend fun pageLink(gallery: Gallery, index: Int): String {
+        val known = (galleries.value.firstOrNull { it.key == gallery.key } ?: gallery).pages[index]
+        if (known.isNotBlank()) return known
+        return indexLock.withLock {
+            val current = galleries.value.firstOrNull { it.key == gallery.key } ?: gallery
+            current.pages[index].takeIf { it.isNotBlank() }?.let { return@withLock it }
+            val indexPage = index / current.indexPageSize
+            val links = GalleryParser.pageLinks(current.url, text("${current.url}?p=$indexPage"))
+            val link = requireNotNull(links[index + 1]) { "This gallery page is unavailable. Retry or check Account & access." }
+            store(current.copy(pages = current.pages.mapIndexed { number, old -> links[number + 1] ?: old }))
+            link
+        }
     }
 
     private fun lastRead(gallery: Gallery) = preferences.getInt("page_${gallery.key}", 0).coerceIn(gallery.pages.indices)
     fun readingMode(): String = preferences.getString("mode", "RTL") ?: "RTL"
     fun setReadingMode(mode: String) { preferences.edit().putString("mode", mode).apply() }
+    fun autoScrollSeconds(): Int = preferences.getInt("auto_scroll_seconds", 5).coerceIn(1, 60)
+    fun setAutoScrollSeconds(seconds: Int) { preferences.edit().putInt("auto_scroll_seconds", seconds.coerceIn(1, 60)).apply() }
+    fun downloadPercent(gallery: Gallery): Int = preferences.getInt("download_percent_${gallery.key}", 100).coerceIn(1, 100)
+    fun setDownloadPercent(gallery: Gallery, percent: Int) {
+        galleryDownloadPageCount(gallery.pages.size, percent)
+        preferences.edit().putInt("download_percent_${gallery.key}", percent).apply()
+    }
 
     fun setDownload(key: String, state: GalleryDownload) { mutableDownloads.update { it + (key to state) } }
     fun downloadState(key: String) = downloads.value[key] ?: GalleryDownload()
 
-    suspend fun download(gallery: Gallery, progress: suspend (Int, Int) -> Unit) = withContext(Dispatchers.IO) {
+    suspend fun download(gallery: Gallery, percent: Int, progress: suspend (Int, Int) -> Unit) = withContext(Dispatchers.IO) {
+        val target = galleryDownloadPageCount(gallery.pages.size, percent)
         setSaved(gallery, true)
-        progress(galleries.value.first { it.key == gallery.key }.downloaded, gallery.pages.size)
-        for (index in gallery.pages.indices) {
+        var done = (0 until target).count { validImage(pagePath(root, gallery, it)) }
+        progress(done, target)
+        for (index in 0 until target) {
             currentCoroutineContext().ensureActive()
             if (validImage(pagePath(root, gallery, index))) continue
             pageFile(gallery, index, permanent = true)
-            progress(galleries.value.first { it.key == gallery.key }.downloaded, gallery.pages.size)
-            if (index < gallery.pages.lastIndex) delay(600)
+            progress(++done, target)
+            if (index < target - 1) delay(600)
         }
     }
 
@@ -262,7 +308,7 @@ internal class GalleryRepository private constructor(private val context: Contex
             if (validImage(offline)) return@withContext offline
             if (validImage(cached)) return@withContext cached
         }
-        imageLocks.getOrPut(gallery.key) { Mutex() }.withLock {
+        val fetch: suspend () -> File = { imageLocks.getOrPut("${gallery.key}_$index") { Mutex() }.withLock {
             val offline = pagePath(root, gallery, index)
             val cached = pagePath(cache, gallery, index)
             if (validImage(offline)) return@withLock offline
@@ -281,12 +327,13 @@ internal class GalleryRepository private constructor(private val context: Contex
                 } else cached.setLastModified(System.currentTimeMillis())
                 return@withLock target
             }
-            val page = gallery.pages[index]
+            val page = pageLink(gallery, index)
             val imageUrl = GalleryParser.imageUrl(page, text(page))
             writeImage(imageUrl, target, page)
             if (permanent) updateDownloaded(gallery, added) else trimCache(target)
             target
-        }
+        } }
+        if (permanent) imageLocks.getOrPut(gallery.key) { Mutex() }.withLock { fetch() } else fetch()
     }
 
     private suspend fun writeImage(imageUrl: String, target: File, referer: String) {

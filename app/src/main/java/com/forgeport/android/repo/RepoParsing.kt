@@ -48,6 +48,19 @@ object RepoParsing {
         return "GITHUB_TOKEN_$normalized"
     }
 
+    fun repositoryKind(name: String): String? = when {
+        name == "GITHUB_REPOSITORY" || name.startsWith("GITHUB_REPOSITORY_") -> "github"
+        name == "HF_REPOSITORY" || name.startsWith("HF_REPOSITORY_") ||
+            name == "HUGGINGFACE_REPOSITORY" || name.startsWith("HUGGINGFACE_REPOSITORY_") -> "huggingface"
+        else -> null
+    }
+
+    fun repositoryVariableName(label: String, huggingFace: Boolean): String {
+        val suffix = label.trim().uppercase().replace(Regex("[^A-Z0-9]+"), "_").trim('_').take(100)
+        require(suffix.isNotEmpty()) { "Enter a repository label containing letters or numbers." }
+        return (if (huggingFace) "HF_REPOSITORY_" else "GITHUB_REPOSITORY_") + suffix
+    }
+
     fun sanitizeTargetPath(input: String): String {
         val cleaned = input.trim().replace('\\', '/').trim('/')
         if (cleaned.isBlank()) return ""

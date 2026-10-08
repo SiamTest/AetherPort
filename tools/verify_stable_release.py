@@ -34,14 +34,16 @@ if sys.argv[1:3] == ['release', 'view']:
 ''')
         gh.chmod(0o755)
         env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
-                   BUILD_TYPE='debug', GITHUB_REPOSITORY='example/ForgePort',
+                   BUILD_TYPE='debug', GITHUB_REPOSITORY='example/AetherPort',
                    GITHUB_SHA='0123456789abcdef', GITHUB_ENV=str(work / 'env'),
                    GH_CALLS=str(work / 'calls.jsonl'), EXISTING_RELEASE=str(int(existing)))
         for step in ('Prepare APK artifact', 'Publish GitHub Release'):
             subprocess.run(['bash', '-n'], input=script(step), text=True, check=True)
         subprocess.run(['bash', '-c', script('Prepare APK artifact')], cwd=work, env=env, check=True)
-        manifest = json.loads((work / 'dist/forgeport-update.json').read_text())
+        manifest = json.loads((work / 'dist/aetherport-update.json').read_text())
         assert manifest['prerelease'] is False, manifest
+        assert manifest['version'] == '3.0.4' and manifest['tag'] == 'v3.0.4', manifest
+        assert manifest['apk'].startswith('AetherPort-Android-3.0.4'), manifest
         for line in (work / 'env').read_text().splitlines():
             key, value = line.split('=', 1)
             env[key] = value
@@ -54,7 +56,7 @@ if sys.argv[1:3] == ['release', 'view']:
         if existing:
             assert '--draft=false' in release
         upload = calls[1]
-        assert 'dist/forgeport-update.json' in upload
+        assert 'dist/aetherport-update.json' in upload
         assert any(arg.endswith('.apk') for arg in upload)
         assert any(arg.endswith('.sha256') for arg in upload)
 

@@ -1,5 +1,20 @@
 package com.forgeport.android.gallery
 
+import com.forgeport.android.ui.theme.ExpressiveButton as Button
+import com.forgeport.android.ui.theme.ExpressiveOutlinedButton as OutlinedButton
+import com.forgeport.android.ui.theme.ExpressiveTextButton as TextButton
+import com.forgeport.android.ui.theme.ExpressiveIconButton as IconButton
+import com.forgeport.android.ui.theme.ExpressiveDialog as AlertDialog
+import com.forgeport.android.ui.theme.ExpressiveFilterChip as FilterChip
+import com.forgeport.android.ui.theme.AdaptiveContent
+import com.forgeport.android.ui.theme.contentColumns
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import com.forgeport.android.ui.theme.ExpressiveMotion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -62,6 +77,19 @@ internal fun GalleryCatalogScreen(
             vm.catalog.canLoadMore(lastVisible)
         }.distinctUntilChanged().collect { load -> if (load) vm.browse(more = true) }
     }
+    LaunchedEffect(state.items) {
+        // Warm the first screen, rather than fetching an entire catalogue of indexes.
+        for (item in state.items.take(6)) {
+            try {
+                vm.repository.loadGallery(item.url)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                break
+            }
+            kotlinx.coroutines.delay(350)
+        }
+    }
     val focus = LocalFocusManager.current
     LaunchedEffect(Unit) { if (!vm.catalog.initialized) vm.browse() }
     fun submit() { focus.clearFocus(); vm.browse(query = search.trim()) }
@@ -69,7 +97,7 @@ internal fun GalleryCatalogScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("E-Hentai") },
+                    title = { Text("E-Hentai", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                     actions = {
                         IconButton(onClick = { searchOpen = !searchOpen }) { Icon(Icons.Filled.Search, "Search galleries") }
@@ -84,7 +112,7 @@ internal fun GalleryCatalogScreen(
                         }
                     },
                 )
-                if (searchOpen) {
+                AnimatedVisibility(searchOpen, enter = expandVertically(ExpressiveMotion.spatial()) + fadeIn(ExpressiveMotion.spatial()), exit = shrinkVertically(ExpressiveMotion.spatial()) + fadeOut(ExpressiveMotion.spatial())) {
                     OutlinedTextField(
                         value = search, onValueChange = { search = it }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -94,10 +122,10 @@ internal fun GalleryCatalogScreen(
                         trailingIcon = { IconButton(onClick = { submit() }) { Icon(Icons.Filled.Search, "Run search") } },
                     )
                 }
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CatalogChip("Popular", Icons.Filled.Favorite, state.mode == GalleryCatalogMode.POPULAR, Modifier.weight(1.12f)) { vm.browse(mode = GalleryCatalogMode.POPULAR, refresh = true) }
-                    CatalogChip("Latest", Icons.Filled.NewReleases, state.mode == GalleryCatalogMode.LATEST, Modifier.weight(1f)) { vm.browse(mode = GalleryCatalogMode.LATEST, refresh = true) }
-                    CatalogChip(if (state.filters.active) "Filter •" else "Filter", Icons.Filled.FilterList, state.filters.active, Modifier.weight(1f)) { filterOpen = true }
+                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CatalogChip("Popular", Icons.Filled.Favorite, state.mode == GalleryCatalogMode.POPULAR, Modifier) { vm.browse(mode = GalleryCatalogMode.POPULAR, refresh = true) }
+                    CatalogChip("Latest", Icons.Filled.NewReleases, state.mode == GalleryCatalogMode.LATEST, Modifier) { vm.browse(mode = GalleryCatalogMode.LATEST, refresh = true) }
+                    CatalogChip(if (state.filters.active) "Filter •" else "Filter", Icons.Filled.FilterList, state.filters.active, Modifier) { filterOpen = true }
                 }
                 if (state.query.isNotBlank() || state.filters.active) {
                     Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -110,44 +138,50 @@ internal fun GalleryCatalogScreen(
         },
         bottomBar = { GalleryNavigationBar("browse", browse = {}, library = library, downloads = downloads) },
     ) { padding ->
-        PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = { vm.browse(refresh = true) },
-            modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (state.items.isEmpty()) {
-                Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
-                    CatalogFeedback(state, retry = { vm.browse(refresh = true) }, website = { website(EhentaiNavigation.HOME) })
-                }
-            } else if (grid) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2), state = gridState, modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
-                ) {
-                    items(state.items, key = { it.url }) { item ->
-                        Column(Modifier.fillMaxWidth().clickable { open(item.url) }) {
-                            GalleryCover(vm.repository, item.cover, item.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(4.dp)))
-                            Text(item.title, Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        AdaptiveContent(Modifier.padding(padding), maxWidth = 1200) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val columns = contentColumns(maxWidth.value - 24f, LocalDensity.current.fontScale)
+                PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = { vm.browse(refresh = true) },
+                    modifier = Modifier.fillMaxSize()) {
+                    if (state.items.isEmpty()) {
+                        Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+                            CatalogFeedback(state, retry = { vm.browse(refresh = true) }, website = { website(EhentaiNavigation.HOME) })
                         }
-                    }
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        CatalogFooter(state, load = { vm.browse(more = true) }, retry = { vm.browse(more = state.next != null, refresh = true) })
-                    }
-                }
-            } else {
-                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(state.items, key = { it.url }) { item ->
-                        Row(Modifier.fillMaxWidth().clickable { open(item.url) }, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            GalleryCover(vm.repository, item.cover, item.title, Modifier.width(82.dp).height(123.dp).clip(RoundedCornerShape(4.dp)))
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(item.title, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                                Text(item.category, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    } else if (grid) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(columns), state = gridState, modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
+                        ) {
+                            items(state.items, key = { it.url }) { item ->
+                                Column(Modifier.fillMaxWidth().clickable { open(item.url) }) {
+                                    GalleryCover(vm.repository, item.cover, item.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small))
+                                    Text(item.title, Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                CatalogFooter(state, load = { vm.browse(more = true) }, retry = { vm.browse(more = state.next != null, refresh = true) })
                             }
                         }
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            items(state.items, key = { it.url }) { item ->
+                                Row(Modifier.fillMaxWidth().clickable { open(item.url) }, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    GalleryCover(vm.repository, item.cover, item.title, Modifier.width(82.dp).height(123.dp).clip(MaterialTheme.shapes.small))
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(item.title, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                        Text(item.category, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                            item { CatalogFooter(state, load = { vm.browse(more = true) }, retry = { vm.browse(more = state.next != null, refresh = true) }) }
+                        }
                     }
-                    item { CatalogFooter(state, load = { vm.browse(more = true) }, retry = { vm.browse(more = state.next != null, refresh = true) }) }
                 }
             }
         }
     }
+
     if (filterOpen) GalleryFilterDialog(state.filters, dismiss = { filterOpen = false }) { filters ->
         filterOpen = false; vm.browse(filters = filters)
     }
@@ -155,17 +189,12 @@ internal fun GalleryCatalogScreen(
 
 @Composable
 private fun CatalogChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick, modifier = modifier.heightIn(min = 42.dp), shape = RoundedCornerShape(9.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Icon(icon, null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(6.dp)); Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+    FilterChip(selected, onClick, label = {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge)
         }
-    }
+    }, modifier = modifier)
 }
 
 @Composable
@@ -209,16 +238,10 @@ private fun GalleryFilterDialog(current: GalleryFilters, dismiss: () -> Unit, ap
         text = {
             Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Categories", style = MaterialTheme.typography.titleSmall)
-                GalleryCatalog.categories.chunked(2).forEach { row ->
-                    Row(Modifier.fillMaxWidth()) {
-                        row.forEach { category ->
-                            Row(Modifier.weight(1f).clickable {
-                                categories = if (category.flag in categories) categories - category.flag else categories + category.flag
-                            }, verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(category.flag in categories, onCheckedChange = { checked -> categories = if (checked) categories + category.flag else categories - category.flag })
-                                Text(category.label, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+                GalleryCatalog.categories.forEach { category ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(category.flag in categories, onCheckedChange = { checked -> categories = if (checked) categories + category.flag else categories - category.flag })
+                        Text(category.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 Box {
@@ -238,9 +261,9 @@ private fun GalleryFilterDialog(current: GalleryFilters, dismiss: () -> Unit, ap
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit) }, Modifier.weight(1f), label = { Text("Min pages") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(maximum, { maximum = it.filter(Char::isDigit) }, Modifier.weight(1f), label = { Text("Max pages") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(minimum, { minimum = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("Min pages") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(maximum, { maximum = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("Max pages") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 TextButton(onClick = { categories = GalleryFilters().categories; language = ""; uploader = ""; rating = 0; minimum = ""; maximum = ""; error = null }) { Text("Reset filters") }

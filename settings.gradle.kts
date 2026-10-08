@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ForgePortAndroid"
+rootProject.name = "AetherPortAndroid"
 include(":app")

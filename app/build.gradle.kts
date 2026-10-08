@@ -5,7 +5,9 @@ plugins {
 }
 
 val updateGithubRepository = providers.gradleProperty("updateGithubRepository")
+    .orElse(providers.environmentVariable("GITHUB_REPOSITORY"))
     .getOrElse("Chowdhury-Siam/ForgePort")
+require(updateGithubRepository.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"))) { "Invalid update repository." }
 
 android {
     namespace = "com.forgeport.android"
@@ -15,8 +17,8 @@ android {
         applicationId = "com.forgeport.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3000014
-        versionName = "3.0.0-alpha14"
+        versionCode = 3000020
+        versionName = "3.0.4"
 
         buildConfigField("String", "UPDATE_GITHUB_REPOSITORY", "\"$updateGithubRepository\"")
 

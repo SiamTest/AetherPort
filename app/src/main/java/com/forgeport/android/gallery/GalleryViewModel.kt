@@ -54,6 +54,7 @@ internal class GalleryViewModel(application: Application) : AndroidViewModel(app
     }
 
     init {
+        browse()
         viewModelScope.launch {
             try {
                 repository.prepareSession()
@@ -72,7 +73,8 @@ internal class GalleryViewModel(application: Application) : AndroidViewModel(app
             error = null
             try {
                 repository.prepareSession()
-                repository.loadGallery(url, refresh)
+                val gallery = repository.loadGallery(url, refresh)
+                repository.markVisited(gallery)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -81,12 +83,15 @@ internal class GalleryViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
-    fun download(gallery: Gallery) {
+    fun download(gallery: Gallery, percent: Int) {
         viewModelScope.launch {
             try {
+                val target = galleryDownloadPageCount(gallery.pages.size, percent)
+                if (repository.downloadState(gallery.key).let { it.running || it.queued }) return@launch
                 repository.prepareSession()
                 repository.setSaved(gallery, true)
-                repository.setDownload(gallery.key, GalleryDownload(queued = true, message = "Queued"))
+                repository.setDownloadPercent(gallery, percent)
+                repository.setDownload(gallery.key, GalleryDownload(queued = true, message = "Queued • first $target pages ($percent%)", targetPages = target))
                 GalleryDownloadService.start(getApplication(), gallery.url)
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -104,6 +109,12 @@ internal class GalleryViewModel(application: Application) : AndroidViewModel(app
     fun save(gallery: Gallery) = viewModelScope.launch {
         try { repository.setSaved(gallery, !gallery.saved) } catch (failure: Exception) { error = failure.message }
     }
+
+    fun removeFromLibrary(gallery: Gallery) = viewModelScope.launch {
+        try { repository.setSaved(gallery, false) } catch (failure: Exception) { error = failure.message }
+    }
+
+    fun clearHistory(gallery: Gallery? = null) { repository.clearHistory(gallery) }
 
     fun removeDownloads(gallery: Gallery) = viewModelScope.launch {
         try { repository.removeDownloads(gallery) } catch (failure: Exception) { error = failure.message }

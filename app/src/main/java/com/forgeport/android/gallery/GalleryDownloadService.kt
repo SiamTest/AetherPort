@@ -44,7 +44,7 @@ class GalleryDownloadService : Service() {
         val url = intent?.getStringExtra(URL)?.let(EhentaiNavigation::galleryUrl)
         val key = url?.let { java.net.URI(it).path.trim('/').removePrefix("g/").replace('/', '_') }
         if (!foregroundReady) {
-            key?.let { repository.setDownload(it, GalleryDownload(message = "Android could not start the download. Keep ForgePort open and retry later.")) }
+            key?.let { repository.setDownload(it, GalleryDownload(message = "Android could not start the download. Keep AetherPort open and retry later.")) }
             stopSelf()
             return START_NOT_STICKY
         }
@@ -66,7 +66,7 @@ class GalleryDownloadService : Service() {
             else -> {
                 if (url != null && key != null && key != activeKey && !pending.containsKey(key)) {
                     pending[key] = url
-                    repository.setDownload(key, GalleryDownload(queued = true, message = "Queued"))
+                    repository.setDownload(key, repository.downloadState(key).copy(queued = true, message = "Queued"))
                 }
                 if (activeJob == null) startNext()
             }
@@ -87,10 +87,13 @@ class GalleryDownloadService : Service() {
                 repository.setDownload(key, GalleryDownload(running = true, message = "Downloading"))
                 repository.prepareSession()
                 val gallery = repository.loadGallery(url)
-                repository.download(gallery) { done, total ->
+                val percent = repository.downloadPercent(gallery)
+                repository.download(gallery, percent) { done, total ->
+                    repository.setDownload(key, GalleryDownload(running = true, message = "Downloading • $done / $total selected pages", completedPages = done, targetPages = total))
                     withContext(Dispatchers.Main) { startForeground(NOTIFICATION, notification(done, total)) }
                 }
-                repository.setDownload(key, GalleryDownload(message = "Ready offline"))
+                val target = galleryDownloadPageCount(gallery.pages.size, percent)
+                repository.setDownload(key, GalleryDownload(message = if (target == gallery.pages.size) "Ready offline" else "First $target pages ready offline ($percent%)", completedPages = target, targetPages = target))
             } catch (_: CancellationException) {
                 repository.setDownload(key, GalleryDownload(message = "Paused. Tap Resume to continue."))
             } catch (error: Exception) {
@@ -117,8 +120,8 @@ class GalleryDownloadService : Service() {
             this, 2, Intent(this, GalleryDownloadService::class.java).setAction(PAUSE_ALL),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_forgeport_mark)
-            .setContentTitle("ForgePort gallery download")
+        return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_aetherport_monochrome)
+            .setContentTitle("AetherPort gallery download")
             .setContentText(if (total > 0) "$done / $total pages • ${pending.size} queued" else "Preparing download")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setProgress(total, done, total == 0)

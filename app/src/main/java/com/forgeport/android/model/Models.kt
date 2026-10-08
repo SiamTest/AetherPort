@@ -13,6 +13,15 @@ data class SecretVariable(
     val maskedValue: String,
 )
 
+data class SavedRepository(val variableName: String, val repository: String, val huggingFace: Boolean)
+
+data class ProjectArchive(val uri: String, val name: String, val modifiedAt: Long, val size: Long)
+
+fun newestArchives(archives: List<ProjectArchive>): List<ProjectArchive> = archives.distinctBy { it.uri }
+    .sortedWith(compareByDescending<ProjectArchive> { it.modifiedAt }.thenBy { it.name.lowercase() }.thenBy { it.uri })
+
+data class PublishProject(val id: String, val name: String, val timestamp: Long, val size: Long)
+
 data class OperationResult(
     val ok: Boolean,
     val message: String,

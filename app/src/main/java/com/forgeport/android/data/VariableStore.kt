@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.forgeport.android.model.SecretVariable
+import com.forgeport.android.model.SavedRepository
 import com.forgeport.android.repo.RepoParsing
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -25,9 +26,14 @@ class VariableStore(context: Context) {
     fun put(nameRaw: String, value: String) {
         val name = normalizeName(nameRaw)
         require(value.isNotEmpty()) { "Variable value cannot be empty." }
+        val storedValue = when (RepoParsing.repositoryKind(name)) {
+            "github" -> RepoParsing.normalizeGitHubRepo(value)
+            "huggingface" -> RepoParsing.normalizeHuggingFaceSpace(value)
+            else -> value
+        }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        val ciphertext = cipher.doFinal(storedValue.toByteArray(Charsets.UTF_8))
         val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + "." +
             Base64.encodeToString(ciphertext, Base64.NO_WRAP)
         prefs.edit().putString(PREFIX + name, packed).apply()
@@ -63,6 +69,16 @@ class VariableStore(context: Context) {
     fun huggingFaceTokenNames(): List<String> = list().map { it.name }.filter {
         it.startsWith("HF_TOKEN") || it.startsWith("HUGGINGFACE_TOKEN")
     }
+
+    fun savedRepositories(): List<SavedRepository> = prefs.all.keys.filter { it.startsWith(PREFIX) }.mapNotNull { key ->
+        val name = key.removePrefix(PREFIX)
+        val kind = RepoParsing.repositoryKind(name) ?: return@mapNotNull null
+        runCatching {
+            val value = get(name).orEmpty()
+            val repo = if (kind == "github") RepoParsing.normalizeGitHubRepo(value) else RepoParsing.normalizeHuggingFaceSpace(value)
+            SavedRepository(name, repo, kind == "huggingface")
+        }.getOrNull()
+    }.sortedBy { it.variableName }
 
     private fun secretKey(): SecretKey {
         val existing = keyStore.getKey(KEY_ALIAS, null) as? SecretKey

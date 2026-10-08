@@ -19,13 +19,20 @@ internal data class Gallery(
     val info: Map<String, String> = emptyMap(),
     val tagGroups: Map<String, List<String>> = emptyMap(),
     val author: String = "",
+    val indexPageSize: Int = 40,
+    val visitedAt: Long = 0,
 ) {
+    fun withoutHistory(): Gallery = copy(lastRead = 0, visitedAt = 0)
+    fun preloadPages(current: Int): IntRange {
+        val start = current.coerceIn(pages.indices)
+        return start..minOf(start + 20, pages.lastIndex)
+    }
     val id: String get() = URI(url).path.split('/')[2]
     val key: String get() = URI(url).path.trim('/').removePrefix("g/").replace('/', '_')
 }
 
 internal data class GalleryIndex(val gallery: Gallery, val total: Int, val links: Map<Int, String>)
-internal data class GalleryDownload(val running: Boolean = false, val queued: Boolean = false, val message: String = "")
+internal data class GalleryDownload(val running: Boolean = false, val queued: Boolean = false, val message: String = "", val completedPages: Int = 0, val targetPages: Int = 0)
 internal class GalleryRateLimitException : IllegalStateException("The image limit was reached. Pause and try again later.")
 
 internal object GalleryParser {
