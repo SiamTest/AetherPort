@@ -84,31 +84,20 @@ internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit)
 
 @Composable
 internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, select: (String) -> Unit) {
-    val dateFormat = remember { DateFormat.getDateTimeInstance() }
-    var expanded by remember { mutableStateOf(false) }
+    var chooser by rememberSaveable { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
     if (settings) ProjectFolderSettings(vm) { settings = false }
+    if (chooser) ArchiveChooserDialog(
+        vm = vm,
+        selected = selected,
+        select = { id -> select(id); chooser = false },
+        dismiss = { chooser = false },
+        openSettings = { chooser = false; settings = true },
+    )
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                OutlinedButton(onClick = { vm.refreshArchives(); expanded = true }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
-                    Text(vm.publishProjects.firstOrNull { it.id == selected }?.name ?: "Select project ZIP")
-                }
-                DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 400.dp)) {
-                    if (vm.archivesLoading) DropdownMenuItem(text = { Text("Refreshing ZIP folder…") }, enabled = false, onClick = {})
-                    if (selected != vm.publishProjects.firstOrNull()?.id && vm.publishProjects.isNotEmpty()) {
-                        DropdownMenuItem(text = { Text("Use newest ZIP automatically") },
-                            onClick = { select(vm.publishProjects.first().id); expanded = false })
-                    }
-                    vm.publishProjects.forEach { project ->
-                        DropdownMenuItem(text = { Column {
-                            Text(project.name)
-                            if (project.timestamp > 0) Text(remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) }, style = MaterialTheme.typography.bodySmall)
-                        } }, onClick = { select(project.id); expanded = false })
-                    }
-                    if (vm.publishProjects.isEmpty() && !vm.archivesLoading) DropdownMenuItem(text = { Text("No ZIPs found") }, enabled = false, onClick = {})
-                    DropdownMenuItem(text = { Text("Configure ZIP folder") }, onClick = { expanded = false; settings = true })
-                }
+            OutlinedButton(onClick = { vm.refreshArchives(); chooser = true }, enabled = !vm.busy, modifier = Modifier.weight(1f)) {
+                Text(vm.publishProjects.firstOrNull { it.id == selected }?.name ?: "Select project ZIP")
             }
             IconButton(onClick = vm::refreshArchives, enabled = !vm.archivesLoading && !vm.busy) { Icon(Icons.Filled.Refresh, "Refresh project ZIPs") }
         }
@@ -117,6 +106,63 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
         if (vm.zipFolderUri == null && !vm.downloadFolderEnabled) TextButton(onClick = { settings = true }) { Text("Set ZIP folder in Settings") }
         else Text("${vm.zipFolderName} • newest ZIPs first", style = MaterialTheme.typography.bodySmall)
     }
+}
+
+@Composable
+private fun ArchiveChooserDialog(
+    vm: AetherPortViewModel,
+    selected: String,
+    select: (String) -> Unit,
+    dismiss: () -> Unit,
+    openSettings: () -> Unit,
+) {
+    val dateFormat = remember { DateFormat.getDateTimeInstance() }
+    AlertDialog(
+        onDismissRequest = dismiss,
+        title = { Text("Choose project ZIP") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Select a ZIP to publish. Newest ZIPs appear first.")
+                if (vm.archivesLoading) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Text("Refreshing ZIP folder…", style = MaterialTheme.typography.bodyMedium)
+                    }
+                } else if (vm.publishProjects.isEmpty()) {
+                    Text("No ZIPs found.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (selected != vm.publishProjects.firstOrNull()?.id && vm.publishProjects.isNotEmpty()) {
+                            item("auto") {
+                                OutlinedButton(onClick = { select(vm.publishProjects.first().id) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Use newest ZIP automatically")
+                                }
+                            }
+                        }
+                        items(vm.publishProjects, key = { it.id }) { project ->
+                            ElevatedCard(onClick = { select(project.id) }, modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(project.name, style = MaterialTheme.typography.titleMedium)
+                                    if (project.timestamp > 0) {
+                                        Text(
+                                            remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) },
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                vm.archiveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = { TextButton(onClick = openSettings) { Text("ZIP folder Settings") } },
+        dismissButton = { TextButton(onClick = dismiss) { Text("Close") } },
+    )
 }
 
 @Composable
