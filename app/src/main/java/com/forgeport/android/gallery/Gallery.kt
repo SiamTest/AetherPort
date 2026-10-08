@@ -27,12 +27,11 @@ internal data class Gallery(
         val start = current.coerceIn(pages.indices)
         return start..minOf(start + 20, pages.lastIndex)
     }
-    val id: String get() = URI(url).path.split('/')[2]
-    val key: String get() = URI(url).path.trim('/').removePrefix("g/").replace('/', '_')
+    val id: String = URI(url).path.split('/')[2]
+    val key: String = URI(url).path.trim('/').removePrefix("g/").replace('/', '_')
 }
 
 internal data class GalleryIndex(val gallery: Gallery, val total: Int, val links: Map<Int, String>)
-internal data class GalleryDownload(val running: Boolean = false, val queued: Boolean = false, val message: String = "", val completedPages: Int = 0, val targetPages: Int = 0)
 internal class GalleryRateLimitException : IllegalStateException("The image limit was reached. Pause and try again later.")
 
 internal object GalleryParser {

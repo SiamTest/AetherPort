@@ -58,8 +58,8 @@ class GalleryDownloadService : Service() {
             PAUSE -> {
                 if (key != null) {
                     pending.remove(key)
-                    repository.setDownload(key, GalleryDownload(message = "Paused. Tap Resume to continue."))
                     if (activeKey == key) activeJob?.cancel()
+                    else repository.setDownload(key, GalleryDownload(message = "Paused. Tap Resume to continue."))
                 }
                 if (activeJob == null && pending.isEmpty()) stopSelf()
             }
@@ -135,7 +135,6 @@ class GalleryDownloadService : Service() {
     }
 
     override fun onDestroy() {
-        activeKey?.let { repository.setDownload(it, GalleryDownload(message = "Paused. Tap Resume to continue.")) }
         pending.keys.forEach { repository.setDownload(it, GalleryDownload(message = "Paused. Tap Resume to continue.")) }
         pending.clear()
         scope.cancel()

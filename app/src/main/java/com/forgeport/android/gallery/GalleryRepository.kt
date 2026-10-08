@@ -60,7 +60,7 @@ internal class GalleryRepository private constructor(private val context: Contex
 
     suspend fun prepareSession() = withContext(Dispatchers.Main) {
         cookies = CookieManager.getInstance().getCookie(EhentaiNavigation.HOME).orEmpty()
-        userAgent = WebSettings.getDefaultUserAgent(context)
+        if (userAgent.isBlank()) userAgent = WebSettings.getDefaultUserAgent(context)
     }
 
     suspend fun initialize() = withContext(Dispatchers.IO) {
@@ -293,10 +293,13 @@ internal class GalleryRepository private constructor(private val context: Contex
     suspend fun removeDownloads(gallery: Gallery) = withContext(Dispatchers.IO) {
         imageLocks.getOrPut(gallery.key) { Mutex() }.withLock {
             check(!downloadState(gallery.key).running && !downloadState(gallery.key).queued) { "Pause the download before removing it." }
-            File(root, gallery.key).listFiles().orEmpty().filter { it.name.endsWith(".img") || it.name.endsWith(".part") }
-                .forEach { check(it.delete()) { "Some downloaded pages could not be removed." } }
-            mutableGalleries.update { list -> list.map { if (it.key == gallery.key) it.copy(downloaded = 0) else it } }
-            setDownload(gallery.key, GalleryDownload(message = "Downloads removed."))
+            try {
+                removeDownloadedFiles(File(root, gallery.key))
+            } finally {
+                val remaining = countDownloaded(gallery)
+                mutableGalleries.update { list -> list.map { if (it.key == gallery.key) it.copy(downloaded = remaining) else it } }
+            }
+            mutableDownloads.update { it - gallery.key }
         }
     }
 

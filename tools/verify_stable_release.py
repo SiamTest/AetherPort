@@ -42,8 +42,8 @@ if sys.argv[1:3] == ['release', 'view']:
         subprocess.run(['bash', '-c', script('Prepare APK artifact')], cwd=work, env=env, check=True)
         manifest = json.loads((work / 'dist/aetherport-update.json').read_text())
         assert manifest['prerelease'] is False, manifest
-        assert manifest['version'] == '3.0.5' and manifest['tag'] == 'v3.0.5', manifest
-        assert manifest['apk'].startswith('AetherPort-Android-3.0.5'), manifest
+        assert manifest['version'] == '3.0.8' and manifest['tag'] == 'v3.0.8', manifest
+        assert manifest['apk'].startswith('AetherPort-Android-3.0.8'), manifest
         for line in (work / 'env').read_text().splitlines():
             key, value = line.split('=', 1)
             env[key] = value

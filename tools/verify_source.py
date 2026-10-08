@@ -8,12 +8,8 @@ assert not (root / "railway.toml").exists()
 assert not (root / "render.yaml").exists()
 
 ui = (root / "app/src/main/java/com/forgeport/android/ui/AetherPortApp.kt").read_text()
-assert 'private fun ProjectsScreen' in ui
-projects_block = ui.split('private fun ProjectsScreen', 1)[1].split('@Composable\nprivate fun ProjectCard', 1)[0]
-assert 'StageZipCard' not in projects_block
-assert 'AlertDialog(' not in projects_block
-assert 'deleteTarget' not in projects_block
-assert 'vm.deleteProject(project.name)' in projects_block
+assert 'ProjectsScreen' not in ui and 'ProjectCard' not in ui
+assert 'Text("Projects")' not in ui and 'vm.projects' not in ui
 
 vm_source = (root / "app/src/main/java/com/forgeport/android/AetherPortViewModel.kt").read_text()
 for success_banner in [
@@ -23,6 +19,15 @@ for success_banner in [
 ]:
     assert success_banner not in vm_source, success_banner
 assert 'StageZipCard' not in ui and 'Choose ZIP' not in ui
+# ZIP root layout and target directory are resolved automatically in the backend.
+assert 'Remove one outer wrapper folder' not in ui
+assert 'Target path (optional)' not in ui
+assert 'var unwrap by' not in ui and 'var targetPath by' not in ui
+assert 'publishGitHub(publishArchive, repo, branch, commit)' in ui
+assert 'publishHuggingFace(publishArchive, repo, token, branch, commit)' in ui
+archive_layout = (root / 'app/src/main/java/com/forgeport/android/data/ArchiveLayout.kt').read_text()
+assert 'detectPublishRoot' in archive_layout and 'PROJECT_DIRECTORIES' in archive_layout
+assert (root / 'app/src/test/java/com/forgeport/android/data/ArchiveLayoutTest.kt').is_file()
 assert 'Small bug fixes' in ui
 assert 'Saved GitHub variable' not in ui
 assert 'CenterAlignedTopAppBar' in ui
@@ -30,6 +35,19 @@ assert 'ElevatedCard' in ui
 assert 'FilledTonalButton' in ui
 assert 'ic_aetherport_mark' in ui
 assert 'Local-first project tools' not in ui
+# Home is a text-only welcome page; repository secret keys stay internal.
+home = ui.split('private fun HomeScreen()', 1)[1].split('private fun TokenPicker(', 1)[0]
+assert 'Welcome to AetherPort' in home
+assert 'Open the menu to get started.' in home
+for removed_home_content in ('StatCard', 'Staged projects', 'Saved variables', 'Your workspace', 'GitHub', 'Hugging Face', 'ElevatedCard'):
+    assert removed_home_content not in home, removed_home_content
+pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.kt').read_text()
+chooser = pickers.split('internal fun RepositoryChooser(', 1)[1].split('internal fun SavedRepositoriesEditor(', 1)[0]
+editor = pickers.split('internal fun SavedRepositoriesEditor(', 1)[1].split('internal fun rememberArchiveSelection(', 1)[0]
+assert 'Text(repository.repository' in chooser and 'key = { it.variableName }' in chooser  # identity key kept
+assert 'Text(repository.variableName' not in chooser
+assert 'Text(item.variableName' not in editor
+assert 'editingName = item.variableName' in editor  # editing/deleting remain bound to correct key
 assert 'private fun UpdatesScreen' in ui
 assert 'Check for updates' in ui
 assert 'Download update' in ui
@@ -56,6 +74,8 @@ assert 'Modifier.weight(1f)' in ui
 
 repo = (root / "app/src/main/java/com/forgeport/android/repo/RepositoryService.kt").read_text()
 assert 'Small bug fixes' in repo
+assert 'pushSource(projects.resolve(projectName))' in repo
+assert 'targetPath' not in repo and 'unwrapSingleFolder' not in repo
 assert 'resolveGitHubToken' in repo
 
 vars_src = (root / "app/src/main/java/com/forgeport/android/data/VariableStore.kt").read_text()
@@ -69,14 +89,14 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.5"' in build
-assert 'versionCode = 3000021' in build
+assert 'versionName = "3.0.8"' in build
+assert 'versionCode = 3000024' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
 assert '<item name="android:windowLightNavigationBar">false</item>' not in (root / 'app/src/main/res/values/themes.xml').read_text(), 'API 27-only navigation-bar appearance attribute must not be in the base values theme.'
 assert 'androidx.compose.material.icons.filled.ArrowForward' not in ui, 'Use the AutoMirrored ArrowForward icon.'
-assert 'Icons.AutoMirrored.Filled.ArrowForward' in ui
+assert 'Icons.AutoMirrored.Filled.ArrowForward' not in ui  # Removed unused Home shortcuts
 assert 'compileSdk = 36' in build
 assert 'androidx.compose.material3:material3' in build
 assert 'material-icons-extended' in build
@@ -219,14 +239,15 @@ assert 'composable("github") { RepositorySection(vm, huggingFace = false)' in ui
 assert 'composable("huggingface") { RepositorySection(vm, huggingFace = true)' in ui
 assert 'composable("projects")' not in ui and 'composable("download")' not in ui
 section = ui.split('private fun RepositorySection', 1)[1].split('@Composable', 1)[0]
-assert 'listOf("Publish", "Download", "Projects") else listOf("Publish", "Projects")' in section
+assert 'val tabs = listOf("Publish", "Download")' in section
+assert 'if (!huggingFace)' in section
 assert 'rememberSaveable(huggingFace)' in section
 assert 'tabState.SaveableStateProvider(tab)' in section
-for target in ['ProjectsScreen(vm)', 'HfDownloadScreen(vm, manageRepositories)', 'HuggingFaceScreen(vm, manageRepositories)', 'GitHubScreen(vm, manageRepositories)']:
+for target in ['HfDownloadScreen(vm, manageRepositories)', 'HuggingFaceScreen(vm, manageRepositories)', 'GitHubScreen(vm, manageRepositories)']:
     assert target in section, target
 forms = ui.split('private fun GitHubScreen', 1)[1].split('private fun GoogleOAuthScreen', 1)[0]
 assert 'by remember { mutableStateOf(' not in forms
-assert 'vm.publishProjects.none { it.id == project }' in forms
+assert forms.count('rememberArchiveSelection(vm.publishProjects)') == 2
 assert 'token !in vm.hfTokenNames' in forms
 assert 'Version ${BuildConfig.VERSION_NAME} • Stable' in ui
 assert 'android:label="@string/app_name"' in manifest
@@ -261,7 +282,7 @@ pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.
 project_store = (root / 'app/src/main/java/com/forgeport/android/data/ProjectStore.kt').read_text()
 assert 'OutlinedTextField(repo,' not in forms and 'var repo by' not in forms
 assert forms.count('if (chooseRepository) RepositoryChooser(') == 3
-assert forms.count('ProjectSourcePicker(vm, project)') == 2
+assert forms.count('ProjectSourcePicker(vm, project, selectProject)') == 2
 assert 'SavedRepositoriesEditor(vm)' in ui and 'Icons.Filled.Settings' in ui
 for marker in ['ActivityResultContracts.OpenDocumentTree()', 'Choose folder', 'Manage in Variables', 'vm.refreshArchives()', 'vm.saveRepository(label, repository, huggingFace, editingName)']:
     assert marker in pickers, marker
@@ -280,7 +301,7 @@ assert 'typography = AetherPortTypography' in theme
 assert 'bottomStart = 12.dp' in theme
 for marker in ['collectIsPressedAsState()', 'RoundedCornerShape(corner.roundToInt()', 'ExpressiveMotion.spatial()', 'verticalScroll(rememberScrollState())', 'heightIn(min = 56.dp)']:
     assert marker in components, marker
-for marker in ['popEnterTransition', 'AnimatedContent(', 'contentColumns(maxWidth.value', 'imePadding()', 'AdaptiveContent {']:
+for marker in ['popEnterTransition', 'AnimatedContent(', 'imePadding()', 'AdaptiveContent {']:
     assert marker in ui, marker
 assert 'contentColumns(maxWidth.value - 24f' in catalog_ui
 assert 'sideBySideGalleryHeader(maxWidth.value' in screens
@@ -308,3 +329,19 @@ assert 'source.name.endsWith(".zip", ignoreCase = true)' in files
 assert 'delete' not in files and 'walk' not in files
 assert (root / 'app/src/test/java/com/forgeport/android/data/DownloadArchiveFilesTest.kt').is_file()
 print('direct Download access and permission bindings: OK')
+
+# Automatic ZIP discovery is foreground-only; changing UI state does not remap archives.
+assert 'derivedStateOf' in vm_source and 'staged:' not in vm_source
+assert 'repeatOnLifecycle(Lifecycle.State.RESUMED)' in ui
+assert 'vm.refreshArchives(silent = true)' in ui and 'delay(2_000)' in ui
+assert 'selectedArchiveId(archives, manualId)' in pickers
+assert 'Use newest ZIP automatically' in pickers
+assert 'listProjects()' not in project_store
+assert 'mutableDownloads.update { it - gallery.key }' in repository
+assert 'Downloads removed.' not in repository
+assert 'visibleInDownloads(it.downloaded, downloads[it.key])' in screens
+assert 'removeDownloadedFiles(File(root, gallery.key))' in repository
+assert 'coverBitmaps.get' in screens and '8 * 1024 * 1024' in screens
+assert 'animateContentSize' not in components
+assert 'if (userAgent.isBlank())' in repository
+print('automatic ZIP selection, removed Downloads and smoother UI bindings: OK')

@@ -15,13 +15,10 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.ui.platform.LocalDensity
 import com.forgeport.android.ui.theme.AdaptiveContent
 import com.forgeport.android.ui.theme.ExpressiveMotion
-import com.forgeport.android.ui.theme.contentColumns
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -53,13 +50,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Key
@@ -104,6 +99,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -126,10 +122,9 @@ import com.forgeport.android.gallery.GalleryDetailsScreen
 import com.forgeport.android.gallery.GalleryLibraryScreen
 import com.forgeport.android.gallery.GalleryReaderScreen
 import com.forgeport.android.gallery.GalleryViewModel
-import com.forgeport.android.model.StagedProject
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
@@ -203,6 +198,19 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Poll only visible publishing sections. SAF providers need not emit file change events.
+    LaunchedEffect(lifecycleOwner, selectedSection, vm.zipFolderUri, vm.downloadFolderEnabled) {
+        if ((selectedSection == "github" || selectedSection == "huggingface") &&
+            (vm.zipFolderUri != null || vm.downloadFolderEnabled)) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    vm.refreshArchives(silent = true)
+                    delay(2_000)
+                }
+            }
+        }
     }
 
     MaterialTheme(colorScheme = if (galleryUiRoute) GalleryColorScheme else MaterialTheme.colorScheme) {
@@ -288,7 +296,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
                         popEnterTransition = { fadeIn(ExpressiveMotion.spatial()) + slideInHorizontally(ExpressiveMotion.spatial()) { -it / 12 } },
                         popExitTransition = { fadeOut(ExpressiveMotion.spatial()) + slideOutHorizontally(ExpressiveMotion.spatial()) { it / 12 } },
                     ) {
-                        composable("home") { HomeScreen(vm) { nav.navigate(it) } }
+                        composable("home") { HomeScreen() }
                         composable("github") { RepositorySection(vm, huggingFace = false) { variablesShowRepositories = true; nav.navigate("variables") } }
                         composable("huggingface") { RepositorySection(vm, huggingFace = true) { variablesShowRepositories = true; nav.navigate("variables") } }
                         composable("ehentai") {
@@ -464,93 +472,30 @@ private fun SectionHeader(title: String, description: String? = null, modifier: 
     }
 }
 
+/** A clean landing page; all app features remain in the navigation drawer. */
 @Composable
-private fun HomeScreen(vm: AetherPortViewModel, open: (String) -> Unit) {
-    ScreenColumn(vm) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val columns = contentColumns(maxWidth.value, LocalDensity.current.fontScale, minCellDp = 164f, maxColumns = 2)
-            val cellWidth = (maxWidth - 12.dp * (columns - 1)) / columns
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(vm.projects.size.toString(), "Staged projects", Icons.Filled.Folder, Modifier.width(cellWidth))
-                StatCard(vm.variables.size.toString(), "Saved variables", Icons.Filled.Security, Modifier.width(cellWidth))
-            }
-        }
-        SectionHeader("Your workspace", "Publish projects, connect accounts, and explore galleries.")
-        val cards = listOf(
-            Triple("GitHub", "Publish projects with your saved GitHub credentials.", "github"),
-            Triple("Hugging Face", "Publish to Spaces or download a repository snapshot.", "huggingface"),
-            Triple("Google", "Connect Google and generate your access tokens.", "google"),
-            Triple("E-Hentai", "Browse, read, and save galleries offline.", "ehentai"),
-            Triple("Variables", "Manage reusable credentials securely.", "variables"),
-            Triple("Updates", "Keep AetherPort up to date.", "updates"),
-        )
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val columns = contentColumns(maxWidth.value, LocalDensity.current.fontScale, minCellDp = 320f, maxColumns = 2)
-            val cellWidth = (maxWidth - 12.dp * (columns - 1)) / columns
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                cards.forEach { (name, desc, route) ->
-                    val icon = destinations.first { it.route == route }.icon
-                    ElevatedCard(onClick = { open(route) }, modifier = Modifier.width(cellWidth)) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
-                                Icon(icon, contentDescription = null, modifier = Modifier.padding(12.dp).size(24.dp))
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(value: String, label: String, icon: ImageVector, modifier: Modifier = Modifier) {
-    ElevatedCard(modifier) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun ProjectsScreen(vm: AetherPortViewModel) {
-    ScreenColumn(vm) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            SectionHeader("Your staged projects", "Stored only on this device until you delete them.", Modifier.weight(1f))
-            IconButton(onClick = vm::refreshAll) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh") }
-        }
-        if (vm.projects.isEmpty()) {
-            ElevatedCard { Text("No staged projects. Choose a ZIP folder in Settings, then publish from GitHub or Hugging Face.", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        } else {
-            vm.projects.forEach { project -> ProjectCard(project, onDelete = { vm.deleteProject(project.name) }) }
-        }
-    }
-}
-
-@Composable
-private fun ProjectCard(project: StagedProject, onDelete: () -> Unit) {
-    ElevatedCard {
-        Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.padding(11.dp).size(24.dp), tint = MaterialTheme.colorScheme.primary)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(project.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("${project.fileCount} files • ${humanBytes(project.totalBytes)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Imported ${DateFormat.getDateTimeInstance().format(Date(project.createdAtEpochMs))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete project") }
+private fun HomeScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.widthIn(max = 520.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                "Welcome to AetherPort",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "Open the menu to get started.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -568,7 +513,11 @@ private fun TokenPicker(names: List<String>, selected: String, onSelected: (Stri
 
 @Composable
 private fun RepositorySection(vm: AetherPortViewModel, huggingFace: Boolean, manageRepositories: () -> Unit) {
-    val tabs = if (huggingFace) listOf("Publish", "Download", "Projects") else listOf("Publish", "Projects")
+    if (!huggingFace) {
+        GitHubScreen(vm, manageRepositories)
+        return
+    }
+    val tabs = listOf("Publish", "Download")
     var selectedTab by rememberSaveable(huggingFace) { mutableStateOf("Publish") }
     val tabState = rememberSaveableStateHolder()
     Column(Modifier.fillMaxSize()) {
@@ -582,14 +531,13 @@ private fun RepositorySection(vm: AetherPortViewModel, huggingFace: Boolean, man
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             AnimatedContent(
-                targetState = selectedTab, label = "Repository tab",
+                targetState = selectedTab.takeIf { it in tabs } ?: "Publish", label = "Repository tab",
                 transitionSpec = { (fadeIn(ExpressiveMotion.spatial()) togetherWith fadeOut(ExpressiveMotion.spatial())).using(SizeTransform { _, _ -> ExpressiveMotion.spatial() }) },
             ) { tab ->
                 tabState.SaveableStateProvider(tab) {
                     when (tab) {
-                        "Projects" -> ProjectsScreen(vm)
                         "Download" -> HfDownloadScreen(vm, manageRepositories)
-                        else -> if (huggingFace) HuggingFaceScreen(vm, manageRepositories) else GitHubScreen(vm, manageRepositories)
+                        else -> HuggingFaceScreen(vm, manageRepositories)
                     }
                 }
             }
@@ -599,26 +547,22 @@ private fun RepositorySection(vm: AetherPortViewModel, huggingFace: Boolean, man
 
 @Composable
 private fun GitHubScreen(vm: AetherPortViewModel, manageRepositories: () -> Unit) {
-    var project by rememberSaveable { mutableStateOf("") }
+    val (project, selectProject) = rememberArchiveSelection(vm.publishProjects)
+    var publishArchive by rememberSaveable { mutableStateOf("") }
     var chooseRepository by rememberSaveable { mutableStateOf(false) }
     var branch by rememberSaveable { mutableStateOf("main") }
     var commit by rememberSaveable { mutableStateOf("Small bug fixes") }
-    var targetPath by rememberSaveable { mutableStateOf("") }
-    var unwrap by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(vm.publishProjects) { if (vm.publishProjects.none { it.id == project }) project = vm.publishProjects.firstOrNull()?.id.orEmpty() }
     if (chooseRepository) RepositoryChooser(vm.savedRepositories.filter { !it.huggingFace }, false,
         "Select a repository to publish the selected project to $branch.", dismiss = { chooseRepository = false },
         manage = { chooseRepository = false; manageRepositories() }, select = { repo ->
-            chooseRepository = false; vm.publishGitHub(project, repo, branch, commit, unwrap, targetPath)
+            chooseRepository = false; vm.publishGitHub(publishArchive, repo, branch, commit)
         })
     ScreenColumn(vm) {
         SectionHeader("Publish to GitHub", "The repository-owner token is matched from Variables. Commits are credited to that token's account with its GitHub no-reply email.")
-        ProjectSourcePicker(vm, project) { project = it }
+        ProjectSourcePicker(vm, project, selectProject)
         OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        CheckRow("Remove one outer wrapper folder", unwrap) { unwrap = it }
-        Button(onClick = { chooseRepository = true }, enabled = project.isNotBlank() && !vm.busy, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { publishArchive = project; chooseRepository = true }, enabled = project.isNotBlank() && !vm.busy, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Code, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Publish to GitHub")
         }
     }
@@ -626,29 +570,25 @@ private fun GitHubScreen(vm: AetherPortViewModel, manageRepositories: () -> Unit
 
 @Composable
 private fun HuggingFaceScreen(vm: AetherPortViewModel, manageRepositories: () -> Unit) {
-    var project by rememberSaveable { mutableStateOf("") }
+    val (project, selectProject) = rememberArchiveSelection(vm.publishProjects)
+    var publishArchive by rememberSaveable { mutableStateOf("") }
     var chooseRepository by rememberSaveable { mutableStateOf(false) }
     var branch by rememberSaveable { mutableStateOf("main") }
     var commit by rememberSaveable { mutableStateOf("Small bug fixes") }
-    var targetPath by rememberSaveable { mutableStateOf("") }
-    var unwrap by rememberSaveable { mutableStateOf(true) }
     var token by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(vm.publishProjects) { if (vm.publishProjects.none { it.id == project }) project = vm.publishProjects.firstOrNull()?.id.orEmpty() }
     LaunchedEffect(vm.hfTokenNames) { if (token !in vm.hfTokenNames) token = vm.hfTokenNames.firstOrNull().orEmpty() }
     if (chooseRepository) RepositoryChooser(vm.savedRepositories.filter { it.huggingFace }, true,
         "Select a Space to publish the selected project to $branch.", dismiss = { chooseRepository = false },
         manage = { chooseRepository = false; manageRepositories() }, select = { repo ->
-            chooseRepository = false; vm.publishHuggingFace(project, repo, token, branch, commit, unwrap, targetPath)
+            chooseRepository = false; vm.publishHuggingFace(publishArchive, repo, token, branch, commit)
         })
     ScreenColumn(vm) {
-        SectionHeader("Publish to Hugging Face", "Push a staged project to a Space. Commits use the selected token's account and verified account email.")
-        ProjectSourcePicker(vm, project) { project = it }
+        SectionHeader("Publish to Hugging Face", "Publish the selected ZIP to a Space. Commits use the selected token's account and verified account email.")
+        ProjectSourcePicker(vm, project, selectProject)
         TokenPicker(vm.hfTokenNames, token) { token = it }
         OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(targetPath, { targetPath = it }, label = { Text("Target path (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        CheckRow("Remove one outer wrapper folder", unwrap) { unwrap = it }
-        Button(onClick = { chooseRepository = true }, enabled = project.isNotBlank() && token.isNotBlank() && !vm.busy, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { publishArchive = project; chooseRepository = true }, enabled = project.isNotBlank() && token.isNotBlank() && !vm.busy, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.CloudUpload, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Publish to Hugging Face")
         }
     }

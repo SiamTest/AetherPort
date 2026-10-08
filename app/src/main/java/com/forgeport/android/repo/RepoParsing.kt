@@ -61,11 +61,4 @@ object RepoParsing {
         return (if (huggingFace) "HF_REPOSITORY_" else "GITHUB_REPOSITORY_") + suffix
     }
 
-    fun sanitizeTargetPath(input: String): String {
-        val cleaned = input.trim().replace('\\', '/').trim('/')
-        if (cleaned.isBlank()) return ""
-        val parts = cleaned.split('/').filter { it.isNotBlank() }
-        require(parts.none { it == "." || it == ".." }) { "Target path cannot contain . or ..." }
-        return parts.joinToString("/")
-    }
 }

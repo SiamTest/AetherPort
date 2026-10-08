@@ -185,15 +185,6 @@ class ProjectStore(private val context: Context) {
         }
     }
 
-    suspend fun listProjects(): List<StagedProject> = withContext(Dispatchers.IO) {
-        projectsRoot.mkdirs()
-        projectsRoot.listFiles()
-            .orEmpty()
-            .filter { it.isDirectory }
-            .mapNotNull { runCatching { projectFromDir(it) }.getOrNull() }
-            .sortedByDescending { it.createdAtEpochMs }
-    }
-
     suspend fun delete(name: String) = withContext(Dispatchers.IO) {
         resolve(name).deleteRecursively()
     }
@@ -206,13 +197,7 @@ class ProjectStore(private val context: Context) {
         return file
     }
 
-    fun pushSource(project: File, unwrapSingleFolder: Boolean): File {
-        val entries = project.listFiles().orEmpty().filter { it.name != METADATA_FILE && it.name !in IGNORED }
-        require(entries.isNotEmpty()) { "The staged project is empty." }
-        if (!unwrapSingleFolder) return project
-        if (entries.size == 1 && entries[0].isDirectory) return entries[0]
-        return project
-    }
+    fun pushSource(project: File): File = ArchiveLayout.detectPublishRoot(project)
 
     private fun projectFromDir(dir: File): StagedProject {
         val metaFile = File(dir, METADATA_FILE)

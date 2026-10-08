@@ -13,13 +13,6 @@ class RepoParsingTest {
     }
 
     @Test
-    fun rejectsUnsafeTargetPath() {
-        assertThrows(IllegalArgumentException::class.java) {
-            RepoParsing.sanitizeTargetPath("../escape")
-        }
-    }
-
-    @Test
     fun normalizesHuggingFaceSpace() {
         assertEquals("user/demo", RepoParsing.normalizeHuggingFaceSpace("https://huggingface.co/spaces/user/demo"))
     }

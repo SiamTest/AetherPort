@@ -1,6 +1,5 @@
 package com.forgeport.android.ui.theme
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -29,11 +28,11 @@ internal object ExpressiveMotion {
 private data class PressStyle(val source: MutableInteractionSource, val modifier: Modifier, val shape: Shape)
 
 @Composable
-private fun pressStyle(modifier: Modifier, enabled: Boolean): PressStyle {
+private fun pressStyle(modifier: Modifier, enabled: Boolean, morphShape: Boolean = true): PressStyle {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed && enabled) 0.96f else 1f, ExpressiveMotion.feedback(), label = "Press scale")
-    val corner by animateFloatAsState(if (pressed && enabled) 28f else 50f, ExpressiveMotion.feedback(), label = "Press shape")
+    val corner by animateFloatAsState(if (morphShape && pressed && enabled) 28f else 50f, ExpressiveMotion.feedback(), label = "Press shape")
     return PressStyle(source, modifier.graphicsLayer { scaleX = scale; scaleY = scale }, RoundedCornerShape(corner.roundToInt().coerceIn(0, 50)))
 }
 
@@ -63,7 +62,7 @@ internal fun ExpressiveTextButton(onClick: () -> Unit, modifier: Modifier = Modi
 
 @Composable
 internal fun ExpressiveIconButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable () -> Unit) {
-    val press = pressStyle(Modifier, enabled)
+    val press = pressStyle(Modifier, enabled, morphShape = false)
     IconButton(onClick, modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), enabled, interactionSource = press.source) {
         Box(press.modifier, contentAlignment = Alignment.Center) { content() }
     }
@@ -78,13 +77,13 @@ internal fun ExpressiveFilterChip(selected: Boolean, onClick: () -> Unit, label:
 
 @Composable
 internal fun ExpressiveCard(modifier: Modifier = Modifier, colors: CardColors = CardDefaults.elevatedCardColors(), content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(modifier.animateContentSize(ExpressiveMotion.spatial()), colors = colors, content = content)
+    ElevatedCard(modifier, colors = colors, content = content)
 }
 
 @Composable
 internal fun ExpressiveCard(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val press = pressStyle(modifier, true)
-    ElevatedCard(onClick, press.modifier.animateContentSize(ExpressiveMotion.spatial()), interactionSource = press.source, content = content)
+    val press = pressStyle(modifier, true, morphShape = false)
+    ElevatedCard(onClick, press.modifier, interactionSource = press.source, content = content)
 }
 
 @Composable

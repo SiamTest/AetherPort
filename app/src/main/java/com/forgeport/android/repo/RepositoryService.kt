@@ -38,17 +38,14 @@ class RepositoryService(
         repoInput: String,
         branchInput: String,
         commitMessageInput: String,
-        unwrapSingleFolder: Boolean,
-        targetPathInput: String = "",
     ): OperationResult = withContext(Dispatchers.IO) {
         runCatching {
             val repoId = RepoParsing.normalizeGitHubRepo(repoInput)
             val branch = RepoParsing.validateBranch(branchInput)
-            val targetPath = RepoParsing.sanitizeTargetPath(targetPathInput)
             val tokenPair = variables.resolveGitHubToken(repoInput)
                 ?: error("No matching GitHub token was found. Add ${RepoParsing.githubTokenVariableName(repoInput)} in Variables.")
             val message = commitMessageInput.trim().ifBlank { "Small bug fixes" }.take(240)
-            val source = projects.pushSource(projects.resolve(projectName), unwrapSingleFolder)
+            val source = projects.pushSource(projects.resolve(projectName))
             val result = pushWithGit(
                 source = source,
                 cloneUrl = "https://github.com/$repoId.git",
@@ -56,7 +53,6 @@ class RepositoryService(
                 token = tokenPair.second,
                 branch = branch,
                 commitMessage = message,
-                targetPath = targetPath,
                 identity = githubIdentity(tokenPair.second),
             )
             result.copy(message = result.message + " Token: ${tokenPair.first}.")
@@ -69,17 +65,14 @@ class RepositoryService(
         tokenVariable: String,
         branchInput: String,
         commitMessageInput: String,
-        unwrapSingleFolder: Boolean,
-        targetPathInput: String = "",
     ): OperationResult = withContext(Dispatchers.IO) {
         runCatching {
             val repoId = RepoParsing.normalizeHuggingFaceSpace(repoInput)
             val branch = RepoParsing.validateBranch(branchInput)
-            val targetPath = RepoParsing.sanitizeTargetPath(targetPathInput)
             val token = variables.get(tokenVariable) ?: error("Selected Hugging Face token was not found.")
             val username = repoId.substringBefore('/')
             val message = commitMessageInput.trim().ifBlank { "Small bug fixes" }.take(240)
-            val source = projects.pushSource(projects.resolve(projectName), unwrapSingleFolder)
+            val source = projects.pushSource(projects.resolve(projectName))
             pushWithGit(
                 source = source,
                 cloneUrl = "https://huggingface.co/spaces/$repoId.git",
@@ -87,7 +80,6 @@ class RepositoryService(
                 token = token,
                 branch = branch,
                 commitMessage = message,
-                targetPath = targetPath,
                 identity = huggingFaceIdentity(token),
             )
         }.getOrElse { OperationResult(false, it.cleanMessage()) }
@@ -131,7 +123,6 @@ class RepositoryService(
         token: String,
         branch: String,
         commitMessage: String,
-        targetPath: String,
         identity: CommitIdentity,
     ): OperationResult {
         val tempRoot = File(context.cacheDir, "forgeport-push-${UUID.randomUUID()}").apply { mkdirs() }
@@ -145,14 +136,10 @@ class RepositoryService(
                 .call()
                 .use { git ->
                     checkoutBranch(git, branch)
-                    val destination = if (targetPath.isBlank()) repoDir else File(repoDir, targetPath)
-                    if (targetPath.isBlank()) {
-                        repoDir.listFiles().orEmpty().filter { it.name != ".git" }.forEach { it.deleteRecursively() }
-                    } else {
-                        destination.deleteRecursively()
-                        destination.mkdirs()
-                    }
-                    copyTree(source, destination)
+                    // Publishing always writes the detected project root to the repository root.
+                    // The clone's Git directory is preserved for committing and pushing.
+                    repoDir.listFiles().orEmpty().filter { it.name != ".git" }.forEach { it.deleteRecursively() }
+                    copyTree(source, repoDir)
                     git.add().addFilepattern(".").call()
                     git.add().setUpdate(true).addFilepattern(".").call()
                     val status = git.status().call()

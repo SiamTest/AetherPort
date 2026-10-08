@@ -2,7 +2,7 @@
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.5
+**Version:** 3.0.8
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -13,10 +13,9 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 
 - Jetpack Compose **Material 3 Expressive principles** across the interface, implemented with the existing stable Material 3 APIs.
 - The navigation drawer has exactly six sections: **GitHub, Hugging Face, Google, E-Hentai, Variables, Updates**.
-- **GitHub** contains **Publish / Projects** tabs. **Hugging Face** contains **Publish / Download / Projects** tabs. ZIP folder selection and publishing stay within those sections; forms and scroll positions survive tab switches. Shared staged projects can be used by either source.
+- **GitHub** opens its Publish form directly. **Hugging Face** contains **Publish / Download** tabs with saved form/scroll state. The Projects screen and persistent staged-project selection have been removed; ZIPs are extracted temporarily only for publishing.
 - **Google** contains authorization and token exports. **E-Hentai** contains browsing, reading, library/history and downloads. **Variables** and **Updates** remain their own sections.
-- Staged projects contains only **Your staged projects**.
-- **Settings → Project ZIP folder → Use Download** lists ZIPs directly in the device's primary **Download** folder, newest first, for both GitHub and Hugging Face. Android 11+ requires explicit **All files access**; Android 8–10 uses storage permission. Root is not required. Android's permission covers shared storage broadly; this feature only reads top-level ZIPs in Download, with no recursive scanning or source-file deletion. **Choose folder** still provides persistent read-only access through the folder picker. Existing staged projects remain available after the ZIP list.
+- **Settings → Project ZIP folder → Use Download** lists ZIPs directly in the device's primary **Download** folder, newest first, for both GitHub and Hugging Face. Android 11+ requires explicit **All files access**; Android 8–10 uses storage permission. Root is not required. Android's permission covers shared storage broadly; this feature only reads top-level ZIPs in Download, with no recursive scanning or source-file deletion. **Choose folder** still provides persistent read-only access through the folder picker. The newest ZIP is selected automatically; explicit older selections remain available.
 - A new mint-and-cyan portal mark appears on the launcher, splash screen, and drawer; Material 3 surfaces use the matching palette with a plain black dark background.
 - ZIPs are extracted only when publishing, with traversal and size checks. Temporary extracted copies are cleaned after success or failure; source ZIPs stay untouched. Choose ZIP/upload controls have been removed.
 - Variables are encrypted with Android Keystore-backed AES-GCM.
@@ -32,14 +31,16 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - **Filter** supports categories, language, uploader, minimum rating, and page-count ranges. Latest sends these to the website; Popular filters the site's ranked popular list using the official metadata API.
 - Gallery details show a portrait cover, title, author, metadata, grouped tags, library/refresh/download actions, one Chapter row, and an orange Start/Continue button.
 - **Browse / Library / Downloads** bottom tabs keep the gallery experience native. Library opens saved titles and reading progress; Downloads has offline counts, live progress, and pause/resume controls.
-- The Overview no longer shows the old “Local-first project tools” banner.
+- Home now displays only a centered welcome message. All app sections remain accessible through the navigation drawer.
 - In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
 
 ## Using the Download folder directly
 
 Open the Settings gear, tap **Use Download**, enable AetherPort's **All files access** in Android Settings, then return. No subfolder is needed: keep project ZIPs directly in Download. APKs, other files, folders and ZIPs inside subfolders are excluded. ZIPs are sorted newest first and share the same project selector in GitHub and Hugging Face.
 
-The choice persists across restarts. Returning to the app, opening the selector or tapping Refresh rereads the folder. If access is denied, the previous source stays selected; if access is later revoked, a recoverable message and **Allow Download access** action appear in Settings. **Choose folder** changes back to a picker-selected source, and **Disconnect folder** stops using that source. Disconnecting does not revoke Android's special permission; that permission can be disabled in Android Settings.
+The choice persists across restarts. Returning to the app, opening the selector or tapping Refresh rereads the folder. While GitHub or Hugging Face is visible and resumed, a lightweight background scan refreshes the list every two seconds without a loading-bar flash. Automatic selection follows the newest ZIP. Choosing an older ZIP pins it until it disappears or **Use newest ZIP automatically** is selected; the archive is captured when Publish opens the repository chooser. If access is denied, the previous source stays selected; if access is later revoked, a recoverable message and **Allow Download access** action appear in Settings. **Choose folder** changes back to a picker-selected source, and **Disconnect folder** stops using that source. Disconnecting does not revoke Android's special permission; that permission can be disabled in Android Settings.
+
+Publishing to GitHub or Hugging Face automatically examines the extracted ZIP: one outer folder is removed when it is a wrapper, while flat or mixed root entries stay in place. Recognizable project directories (`src/`, `app/`, `.github/`, and similar) are retained when they are the only folder. The upload always replaces contents at the **repository root**, preserving `.git`; there is no manual wrapper toggle or target-path entry. Inspect changes in GitHub/Hugging Face after publishing if the archive layout is unusual.
 
 Direct Download mode uses native Android storage access, not the restricted folder picker. Source ZIPs are rechecked before publishing and extracted only into temporary private storage, retaining existing compressed/extracted size and path-traversal checks. This APK distribution requests optional `MANAGE_EXTERNAL_STORAGE`; Google Play publication would require checking the platform's restricted-permission policy separately.
 
@@ -47,11 +48,17 @@ Direct Download mode uses native Android storage access, not the restricted fold
 
 The shared theme uses accessible color roles, a clear typography hierarchy, pill-shaped actions, rounded fields/dialogs/navigation, and asymmetric cards. GitHub, Hugging Face, Google, Variables and Updates share the mint/cyan identity; native gallery screens retain black and orange.
 
-Stable Material 3 components provide semantics, ripples and minimum touch targets. Reusable wrappers add spring-based press/shape feedback, selection, card resizing and dialog entry. Navigation and tab changes use spring transitions; search, gallery metadata and reader controls expand smoothly. Animations use Compose's system duration scale and stop animating when Android animations are disabled. This implementation uses stable Compose APIs rather than the prerelease `MaterialExpressiveTheme` or polygon `MaterialShapes` APIs.
+Stable Material 3 components provide semantics, ripples and minimum touch targets. Reusable wrappers add spring-based press/shape feedback, selection and dialog entry. Frequently changing cards use stable layout instead of animating every size change; dedicated expanding controls retain their spring transitions. Navigation and tab changes use spring transitions; search, gallery metadata and reader controls expand smoothly. Animations use Compose's system duration scale and stop animating when Android animations are disabled. This implementation uses stable Compose APIs rather than the prerelease `MaterialExpressiveTheme` or polygon `MaterialShapes` APIs.
 
 Layouts measure their available window constraints, so tablet, landscape and split-screen sizes work without device-type assumptions. Forms, gallery details and library content stop stretching at 840dp; the catalogue is bounded at 1200dp. Cover columns account for Android font scale, controls wrap, gallery cover/title content stacks when space is tight, dialogs scroll, and forms accommodate the keyboard.
 
 `ui/theme/ExpressivePreviews.kt` includes compact-phone, tablet-dark, landscape and 200% text component previews for Android Studio. `ResponsiveLayoutTest` checks phone/tablet boundaries and sweeps widths of 240–1200dp and font scales up to 200%. These logic checks and previews do not replace device/emulator verification.
+
+## Scrolling and Downloads fixes
+
+Decoded covers share an 8 MiB memory cache keyed by file path, modification time and size, avoiding repeat decoding when lists recycle items. Reader images keep their existing pixel limits. Gallery IDs/keys and ZIP mappings are computed once per data change, and saved/download lists are memoized. Session cookies remain fresh while the WebView user agent is initialized once. These changes target repeated work; frame-rate improvements have not been measured on a device.
+
+Removing a download deletes offline/partial page files and removes its download-status entry, so it disappears from Downloads. Saved-library membership, history, metadata and reading preview cache remain independent. Empty failed/paused entries can also be removed. Active downloads must finish pausing before removal becomes available; deletion failures are reported and remaining counts are recalculated.
 
 ## Build locally
 
@@ -76,7 +83,7 @@ It:
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
 7. creates `aetherport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.5`) with the APK, checksum, and update manifest.
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.8`) with the APK, checksum, and update manifest.
 
 Every successful non-PR run publishes a stable GitHub release and marks it **Latest**, including when the application version still contains an alpha/beta/RC suffix. Rerunning a version uploads the new assets and promotes an existing prerelease/draft to a stable published release. The update manifest always reports `prerelease: false`.
 
@@ -97,7 +104,7 @@ Do not use a disposable signing key for production installs. Android requires fu
 
 ## In-app updates
 
-AetherPort checks GitHub Releases when the app opens. GitHub Actions builds default to the repository that built the APK (`GITHUB_REPOSITORY`), so forked or renamed deployments use their own releases. Local builds fall back to `Chowdhury-Siam/ForgePort`. The navigation drawer and workspace also expose an **Updates** page for manual checks.
+AetherPort checks GitHub Releases when the app opens. GitHub Actions builds default to the repository that built the APK (`GITHUB_REPOSITORY`), so forked or renamed deployments use their own releases. Local builds fall back to `Chowdhury-Siam/ForgePort`. The navigation drawer exposes an **Updates** page for manual checks.
 
 The update flow:
 
@@ -113,7 +120,7 @@ The **Automatic update pop-ups** preference is enabled by default and is stored 
 
 Use **Updates → Change update repository** to correct an older build's source with an `owner/repository` value or GitHub repository URL. The selection persists. For private releases, save the matching `GITHUB_TOKEN_<OWNER>` variable (or one unambiguous `GITHUB_TOKEN` variable) in **Variables**. The existing encrypted variable store is reused; credentials are sent only to the HTTPS GitHub API, and private APK/checksum downloads use the release-asset API. Missing repositories, expired tokens, rate limits and unpublished releases now have actionable messages.
 
-Version `3.0.5` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
+Version `3.0.8` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
 
 The default update repository can also be overridden at build time with:
 
@@ -125,7 +132,7 @@ For actual in-place updates, every installed APK and future update APK must use 
 
 ## E-Hentai browsing
 
-Open **E-Hentai** from the navigation drawer or Overview. The native catalogue
+Open **E-Hentai** from the navigation drawer. The native catalogue
 uses a black background, orange controls, and portrait covers that adapt to window width and text size.
 **Popular** shows the site's popularity-ranked list; **Latest** shows recent
 results. Use the search icon to search titles and tags, the grid icon to toggle

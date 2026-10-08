@@ -121,7 +121,7 @@ internal fun GalleryDetailsScreen(
                             if (gallery.saved) DropdownMenuItem(text = { Text("Remove from library") }, onClick = { menu = false; vm.removeFromLibrary(gallery) })
                             DropdownMenuItem(text = { Text("Delete history") }, onClick = { menu = false; vm.clearHistory(gallery) })
                         }
-                        if (gallery != null && gallery.downloaded > 0) DropdownMenuItem(text = { Text("Remove downloads") }, enabled = !status.running && !status.queued,
+                        if (gallery != null && visibleInDownloads(gallery.downloaded, downloads[gallery.key])) DropdownMenuItem(text = { Text("Remove downloads") }, enabled = !status.running && !status.queued,
                             onClick = { menu = false; confirmDelete = true })
                     }
                 }
@@ -334,10 +334,10 @@ internal fun GalleryLibraryScreen(
     var menu by remember { mutableStateOf(false) }
     var confirmHistory by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Gallery?>(null) }
-    val saved = galleries.filter {
-        if (downloadsOnly) it.downloaded > 0 || downloads.containsKey(it.key)
+    val saved = remember(galleries, downloads, downloadsOnly, history) { galleries.filter {
+        if (downloadsOnly) visibleInDownloads(it.downloaded, downloads[it.key])
         else if (history) it.visitedAt > 0 else it.saved
-    }.let { if (history) it.sortedByDescending { item -> item.visitedAt } else it }
+    }.let { if (history) it.sortedByDescending { item -> item.visitedAt } else it } }
     if (confirmHistory) AlertDialog(
         onDismissRequest = { confirmHistory = false }, title = { Text("Delete all history?") },
         text = { Text("This clears visited galleries and reading progress. Saved galleries and downloads remain.") },
@@ -395,7 +395,7 @@ internal fun GalleryLibraryScreen(
                                     DropdownMenu(selected?.key == gallery.key, onDismissRequest = { selected = null }) {
                                         if (gallery.saved) DropdownMenuItem(text = { Text("Remove from library") }, onClick = { selected = null; vm.removeFromLibrary(gallery) })
                                         if (gallery.visitedAt > 0) DropdownMenuItem(text = { Text("Delete history") }, onClick = { selected = null; vm.clearHistory(gallery) })
-                                        if (gallery.downloaded > 0) DropdownMenuItem(text = { Text("Remove downloads") }, enabled = !status.running && !status.queued,
+                                        if (visibleInDownloads(gallery.downloaded, downloads[gallery.key])) DropdownMenuItem(text = { Text("Remove downloads") }, enabled = !status.running && !status.queued,
                                             onClick = { selected = null; vm.removeDownloads(gallery) })
                                     }
                                 }
@@ -451,7 +451,15 @@ internal fun GalleryPageImage(repository: GalleryRepository, gallery: Gallery, i
     }
 }
 
+// Retain only decoded covers, not large reader pages. Eviction releases references without
+// recycling bitmaps still used by visible Compose images.
+private val coverBitmaps = object : android.util.LruCache<String, Bitmap>(8 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
+}
+
 internal fun decodeGalleryImage(file: File, cover: Boolean): Bitmap {
+    val cacheKey = if (cover) "${file.path}:${file.lastModified()}:${file.length()}" else null
+    cacheKey?.let { coverBitmaps.get(it)?.let { bitmap -> return bitmap } }
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.path, bounds)
     check(bounds.outWidth > 0 && bounds.outHeight > 0) { "This image could not be decoded." }
@@ -461,5 +469,7 @@ internal fun decodeGalleryImage(file: File, cover: Boolean): Bitmap {
         bounds.outHeight / sample > (if (cover) 1000 else 8192) ||
         bounds.outWidth.toLong() * bounds.outHeight / sample / sample > maxPixels) sample *= 2
     val options = BitmapFactory.Options().apply { inSampleSize = sample; inPreferredConfig = Bitmap.Config.RGB_565 }
-    return requireNotNull(BitmapFactory.decodeFile(file.path, options)) { "This image could not be decoded." }
+    val bitmap = requireNotNull(BitmapFactory.decodeFile(file.path, options)) { "This image could not be decoded." }
+    cacheKey?.let { coverBitmaps.put(it, bitmap) }
+    return bitmap
 }

@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.forgeport.android.AetherPortViewModel
+import com.forgeport.android.model.PublishProject
+import com.forgeport.android.model.selectedArchiveId
 import com.forgeport.android.model.SavedRepository
 import java.text.DateFormat
 import java.util.Date
@@ -82,6 +84,7 @@ internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit)
 
 @Composable
 internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, select: (String) -> Unit) {
+    val dateFormat = remember { DateFormat.getDateTimeInstance() }
     var expanded by remember { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
     if (settings) ProjectFolderSettings(vm) { settings = false }
@@ -93,10 +96,14 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
                 }
                 DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 400.dp)) {
                     if (vm.archivesLoading) DropdownMenuItem(text = { Text("Refreshing ZIP folder…") }, enabled = false, onClick = {})
+                    if (selected != vm.publishProjects.firstOrNull()?.id && vm.publishProjects.isNotEmpty()) {
+                        DropdownMenuItem(text = { Text("Use newest ZIP automatically") },
+                            onClick = { select(vm.publishProjects.first().id); expanded = false })
+                    }
                     vm.publishProjects.forEach { project ->
                         DropdownMenuItem(text = { Column {
                             Text(project.name)
-                            if (project.timestamp > 0) Text(DateFormat.getDateTimeInstance().format(Date(project.timestamp)), style = MaterialTheme.typography.bodySmall)
+                            if (project.timestamp > 0) Text(remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) }, style = MaterialTheme.typography.bodySmall)
                         } }, onClick = { select(project.id); expanded = false })
                     }
                     if (vm.publishProjects.isEmpty() && !vm.archivesLoading) DropdownMenuItem(text = { Text("No ZIPs found") }, enabled = false, onClick = {})
@@ -126,10 +133,7 @@ internal fun RepositoryChooser(
                 else LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
                     items(repositories, key = { it.variableName }) { repository ->
                         TextButton(onClick = { select(repository.repository) }, modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(repository.repository)
-                                Text(repository.variableName, style = MaterialTheme.typography.labelSmall)
-                            }
+                            Text(repository.repository, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -163,7 +167,7 @@ internal fun SavedRepositoriesEditor(vm: AetherPortViewModel) {
     entries.forEach { item ->
         ElevatedCard {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(item.repository); Text(item.variableName, style = MaterialTheme.typography.labelSmall) }
+                Text(item.repository, modifier = Modifier.weight(1f))
                 IconButton(onClick = {
                     editingName = item.variableName
                     label = item.variableName.removePrefix("GITHUB_REPOSITORY_").removePrefix("HF_REPOSITORY_").removePrefix("HUGGINGFACE_REPOSITORY_")
@@ -173,4 +177,15 @@ internal fun SavedRepositoriesEditor(vm: AetherPortViewModel) {
             }
         }
     }
+}
+
+/** Empty manual selection follows the newest ZIP; explicit older choices remain usable. */
+@Composable
+internal fun rememberArchiveSelection(archives: List<PublishProject>): Pair<String, (String) -> Unit> {
+    var manualId by rememberSaveable { mutableStateOf("") }
+    val selected = selectedArchiveId(archives, manualId)
+    LaunchedEffect(archives) {
+        if (archives.none { it.id == manualId }) manualId = ""
+    }
+    return selected to { id: String -> manualId = if (id == archives.firstOrNull()?.id) "" else id }
 }

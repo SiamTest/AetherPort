@@ -6,7 +6,7 @@
 | --- | --- |
 | FastAPI HTML UI | Native Kotlin + Jetpack Compose Material 3 |
 | Turso variables | Android Keystore encrypted local variables |
-| Server temporary workspace | App-private staged-project storage |
+| Server temporary workspace | Temporary app-private ZIP extraction |
 | Server `git` subprocesses | JGit |
 | Browser ZIP upload | Persisted folder access, newest-first ZIP list and temporary extraction |
 | Browser ZIP download | Android create-document picker |
@@ -17,20 +17,20 @@
 
 ## Preserved product rules
 
-- Projects has no upload control.
+- Projects UI and persistent staged-project selection are removed.
 - Choose ZIP/upload controls are replaced by Settings → Project ZIP folder. ZIPs appear newest first in both source sections; source files stay untouched.
 - Variables manages saved GitHub repositories/Hugging Face Spaces. Publish and HF Download use repository choosers instead of typed repository fields.
 - GitHub token is auto-detected from the repository owner.
 - Default/fallback commit message is `Small bug fixes`. New commit identities come from the publishing token’s account, with GitHub no-reply attribution and verified Hugging Face email.
-- GitHub and Hugging Face operations use staged projects.
+- GitHub and Hugging Face publish configured-folder ZIPs through temporary private extraction.
 - Google OAuth can export `token.pickle` and `token.json`.
 
 ## Android UI and identity
 
-- Current stable version: `3.0.5` / code `3000021`.
+- Current stable version: `3.0.8` / code `3000024`.
 
 - Rebranded to AetherPort with a mint-and-cyan portal logo, launcher/splash/drawer updates, and stable version `3.0.0` / code `3000016`.
-- The drawer contains only GitHub, Hugging Face, Google, E-Hentai, Variables and Updates. GitHub uses Publish/Projects tabs; Hugging Face uses Publish/Download/Projects tabs. These tools share their parent section instead of separate app-level routes, and form state is saved per tab.
+- The drawer contains only GitHub, Hugging Face, Google, E-Hentai, Variables and Updates. GitHub opens Publish directly; Hugging Face uses Publish/Download tabs. These tools share their parent section instead of separate app-level routes, and form state is saved per tab.
 - Existing application identity and private storage keys are preserved so this remains an update to existing ForgePort installs.
 
 - Material 3 color system, shapes, centered app bar, navigation drawer, tonal actions, elevated cards, and Material icons are used throughout.
@@ -44,7 +44,9 @@
 - Gallery downloads use an Android dataSync foreground service with pause/resume and notification progress.
 - The old Overview “Local-first project tools” banner has been removed.
 - A Material 3 Updates page and startup update prompt now provide direct GitHub Release updates, with a persistent Automatic update pop-ups preference.
-- Staged-project deletion is immediate with no confirmation dialog, and routine add/delete successes no longer create top status banners; errors are still surfaced.
+- ZIP discovery refreshes every two seconds while a publishing section is visible/resumed. Newest is selected automatically, while manual older selections are respected.
+- Gallery download removal clears the status entry and offline files; library/history remain independent. Pausing stays active until cancellation finishes, preventing removal racing a write.
+- Cover bitmaps share an 8 MiB memory cache, gallery identity/ZIP mappings and filtered lists avoid repeated work, and frequently updating cards skip resize animations. Other spring interactions remain.
 
 ## Build and release automation
 

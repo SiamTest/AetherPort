@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.0.8 — Automatic ZIP wrapper detection and simpler publishing
+
+- Automatically detects and removes one outer ZIP wrapper directory during GitHub and Hugging Face publishing, ignoring common archive metadata such as `__MACOSX` and `.DS_Store`. ZIPs with files directly at the root keep their original layout.
+- Preserves conventional project directories such as `src/`, `app/` and `.github/` if they are the sole top-level entry, avoiding accidental flattening of meaningful paths. Never unwraps more than one level. Invalid or content-empty ZIPs fail before pushing.
+- Removed the **Remove one outer wrapper folder** toggle and **Target path (optional)** field from both publish screens. Publishing always targets the repository root; existing branch, message, credentials and ZIP selection remain unchanged.
+- Added JVM regression tests for wrapped/flat/mixed ZIPs, ignored artifacts, legitimate single-directory projects and empty sources. Android app version `3.0.8` (code `3000024`).
+
+## 3.0.7 — Simplified Home and repository names
+
+- Replaced the Home dashboard, statistics and feature cards with a centered welcome message. App sections remain accessible through the navigation drawer; no functionality or saved data is removed.
+- Hidden `GITHUB_REPOSITORY_*` and Hugging Face variable keys in the repository chooser and saved-repositories editor. Repository paths are still shown, and internal keys are retained for correct selection, editing and deletion.
+- Advanced Android version to `3.0.7` (code `3000023`) and updated source/release verification rules.
+
+## 3.0.6 — Smoother lists and automatic ZIP selection
+
+- Removed Projects from GitHub/Hugging Face and removed persistent staged-project selection. Publishing still uses safe temporary extraction; all other features and existing account/storage identity are retained.
+- ZIP discovery refreshes in the background every two seconds while a publishing section is visible/resumed. Default selection follows the newest ZIP; manually choosing an older file is respected, with a return-to-newest action. Publishing captures the source before opening the repository chooser.
+- Removing gallery downloads deletes offline/partial files and removes their status entry so the Downloads card disappears. Empty paused/error entries can also be removed; metadata, library and history remain. Counts recover after partial deletion failures, and pausing must complete before removal.
+- Added an 8 MiB decoded-cover cache and cached gallery identity/ZIP mappings and filtered lists. Avoided repeated user-agent initialization and layout animations on frequently updating cards; existing spring navigation, presses, dialogs and expanding controls remain.
+- Added executable tests for automatic/manual ZIP selection, Downloads visibility and actual file removal/failure handling. Stable version code is `3000022`. Device performance verification remains outstanding.
+
 ## 3.0.5 — Direct Download folder access
 
 - Added **Settings → Use Download** to read ZIPs directly in the primary Download folder for GitHub and Hugging Face. Android 11+ opens the native All files access grant; Android 8–10 uses runtime storage permission. No root or subfolder is required.

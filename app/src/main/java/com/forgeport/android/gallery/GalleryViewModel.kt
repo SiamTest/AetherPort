@@ -117,7 +117,7 @@ internal class GalleryViewModel(application: Application) : AndroidViewModel(app
     fun clearHistory(gallery: Gallery? = null) { repository.clearHistory(gallery) }
 
     fun removeDownloads(gallery: Gallery) = viewModelScope.launch {
-        try { repository.removeDownloads(gallery) } catch (failure: Exception) { error = failure.message }
+        try { repository.removeDownloads(gallery) } catch (cancelled: CancellationException) { throw cancelled } catch (failure: Exception) { error = failure.message }
     }
 }
 

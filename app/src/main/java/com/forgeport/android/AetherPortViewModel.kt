@@ -3,6 +3,7 @@ package com.forgeport.android
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,7 +14,6 @@ import com.forgeport.android.data.VariableStore
 import com.forgeport.android.model.GoogleTokenBundle
 import com.forgeport.android.model.OperationResult
 import com.forgeport.android.model.SecretVariable
-import com.forgeport.android.model.StagedProject
 import com.forgeport.android.model.ProjectArchive
 import com.forgeport.android.model.PublishProject
 import com.forgeport.android.model.SavedRepository
@@ -40,8 +40,6 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
     private val updatePreferences = application.getSharedPreferences("forgeport_updates", Context.MODE_PRIVATE)
     private var startupUpdateCheckDone = false
 
-    var projects by mutableStateOf<List<StagedProject>>(emptyList())
-        private set
     var variables by mutableStateOf<List<SecretVariable>>(emptyList())
         private set
     var hfTokenNames by mutableStateOf<List<String>>(emptyList())
@@ -63,8 +61,9 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         private set
     private var archiveRequest = 0
     private var archiveJob: Job? = null
-    val publishProjects: List<PublishProject> get() = projectArchives.map { PublishProject("zip:${it.uri}", it.name, it.modifiedAt, it.size) } +
-        projects.map { PublishProject("staged:${it.name}", "${it.name} • staged", it.createdAtEpochMs, it.totalBytes) }
+    val publishProjects by derivedStateOf {
+        projectArchives.map { PublishProject("zip:${it.uri}", it.name, it.modifiedAt, it.size) }
+    }
     var busy by mutableStateOf(false)
         private set
     var statusMessage by mutableStateOf<String?>(null)
@@ -110,7 +109,6 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
 
     fun refreshAll() {
         viewModelScope.launch {
-            projects = projectStore.listProjects()
             refreshVariables()
         }
         refreshArchives()
@@ -153,11 +151,12 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun refreshArchives() {
+    fun refreshArchives(silent: Boolean = false) {
+        if (silent && archiveJob?.isActive == true) return
         val request = ++archiveRequest
         archiveJob?.cancel()
         archiveJob = viewModelScope.launch {
-            archivesLoading = true
+            if (!silent) archivesLoading = true
             archiveError = null
             try {
                 val archives = projectStore.listArchives()
@@ -167,13 +166,6 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
             } catch (failure: Exception) {
                 if (request == archiveRequest) { projectArchives = emptyList(); archiveError = failure.message ?: "Could not read the ZIP folder." }
             } finally { if (request == archiveRequest) archivesLoading = false }
-        }
-    }
-
-    fun deleteProject(name: String) {
-        runBusy {
-            projectStore.delete(name)
-            projects = projectStore.listProjects()
         }
     }
 
@@ -207,12 +199,10 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         repo: String,
         branch: String,
         commitMessage: String,
-        unwrap: Boolean,
-        targetPath: String,
     ) {
         runBusy {
             val result = withPublishProject(project) { staged ->
-                repositoryService.publishGitHub(staged, repo, branch, commitMessage, unwrap, targetPath)
+                repositoryService.publishGitHub(staged, repo, branch, commitMessage)
             }
             applyResult(result)
         }
@@ -224,8 +214,6 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         tokenVariable: String,
         branch: String,
         commitMessage: String,
-        unwrap: Boolean,
-        targetPath: String,
     ) {
         runBusy {
             val result = withPublishProject(project) { staged -> repositoryService.publishHuggingFace(
@@ -234,8 +222,6 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
                 tokenVariable,
                 branch,
                 commitMessage,
-                unwrap,
-                targetPath,
             ) }
             applyResult(result)
         }
@@ -430,8 +416,7 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private suspend fun withPublishProject(id: String, publish: suspend (String) -> OperationResult): OperationResult = withContext(Dispatchers.IO) {
-        check(publishProjects.any { it.id == id }) { "Select an available ZIP or staged project." }
-        if (id.startsWith("staged:")) return@withContext publish(id.removePrefix("staged:"))
+        check(publishProjects.any { it.id == id }) { "Select an available project ZIP." }
         require(id.startsWith("zip:")) { "Invalid project selection." }
         val temporary = projectStore.stageArchive(id.removePrefix("zip:"))
         try { publish(temporary.name) }
