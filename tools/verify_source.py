@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 root = Path(__file__).resolve().parents[1]
 assert (root / "app/src/main/AndroidManifest.xml").is_file()
@@ -48,6 +49,11 @@ assert 'Text(repository.repository' in chooser and 'key = { it.variableName }' i
 assert 'Text(repository.variableName' not in chooser
 assert 'Text(item.variableName' not in editor
 assert 'editingName = item.variableName' in editor  # editing/deleting remain bound to correct key
+# Project archives use a centered dialog; never an anchored dropdown menu.
+archive_chooser = pickers.split('internal fun ProjectSourcePicker(', 1)[1].split('internal fun RepositoryChooser(', 1)[0]
+assert 'ArchiveChooserDialog(' in archive_chooser and 'AlertDialog(' in archive_chooser
+assert 'LazyColumn(' in archive_chooser and 'Use newest ZIP automatically' in archive_chooser
+assert 'DropdownMenu(' not in archive_chooser, 'Project ZIP chooser must remain a centered dialog.' 
 assert 'private fun UpdatesScreen' in ui
 assert 'Check for updates' in ui
 assert 'Download update' in ui
@@ -89,8 +95,12 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.9"' in build
-assert 'versionCode = 3000025' in build
+# Read version data from Gradle rather than pinning a previous release number.
+# Require exactly one valid semantic version and positive integer build code.
+version_names = re.findall(r'^\s*versionName\s*=\s*"(\d+\.\d+\.\d+)"\s*$', build, re.MULTILINE)
+version_codes = re.findall(r'^\s*versionCode\s*=\s*(\d+)\s*$', build, re.MULTILINE)
+assert len(version_names) == 1, f"Expected one stable versionName in Gradle: {version_names}"
+assert len(version_codes) == 1 and int(version_codes[0]) > 0, f"Invalid Gradle versionCode: {version_codes}"
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build

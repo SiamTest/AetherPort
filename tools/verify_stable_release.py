@@ -1,6 +1,7 @@
 """Exercise release scripts locally with a fake APK and GitHub CLI; never publish."""
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -8,6 +9,10 @@ import textwrap
 
 root = Path(__file__).resolve().parents[1]
 workflow = (root / '.github/workflows/build-android.yml').read_text()
+build = (root / 'app/build.gradle.kts').read_text()
+versions = re.findall(r'^\s*versionName\s*=\s*"(\d+\.\d+\.\d+)"\s*$', build, re.MULTILINE)
+assert len(versions) == 1, f"Expected one stable Gradle versionName: {versions}"
+version = versions[0]
 
 
 def script(step):
@@ -42,8 +47,8 @@ if sys.argv[1:3] == ['release', 'view']:
         subprocess.run(['bash', '-c', script('Prepare APK artifact')], cwd=work, env=env, check=True)
         manifest = json.loads((work / 'dist/aetherport-update.json').read_text())
         assert manifest['prerelease'] is False, manifest
-        assert manifest['version'] == '3.0.9' and manifest['tag'] == 'v3.0.9', manifest
-        assert manifest['apk'].startswith('AetherPort-Android-3.0.9'), manifest
+        assert manifest['version'] == version and manifest['tag'] == f'v{version}', manifest
+        assert manifest['apk'].startswith(f'AetherPort-Android-{version}'), manifest
         for line in (work / 'env').read_text().splitlines():
             key, value = line.split('=', 1)
             env[key] = value

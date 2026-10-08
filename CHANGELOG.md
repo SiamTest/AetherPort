@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.10 — Centered ZIP picker and version-aware verification
+
+- Replaced the dropdown ZIP picker with a centered, scrollable Material 3 dialog for GitHub and Hugging Face. ZIP ordering, auto-newest selection, timestamps and folder settings are preserved.
+- Updated source and mock-release verification to derive versionName and versionCode from Gradle rather than expecting the previous release. Prevents CI failures caused by stale hardcoded version assertions.
+- Android version remains `3.0.10` (code `3000026`) for the verification-only follow-up.
+
 ## 3.0.9 — Failure-only publish notifications
 
 - Publishing to GitHub or Hugging Face no longer shows a success notification or commit-status card after a successful push or a no-changes result.

@@ -1,4 +1,4 @@
-# AetherPort 3.0.9 validation
+# AetherPort 3.0.10 validation
 
 ## Passed locally
 
@@ -36,3 +36,9 @@
 - Retry a failed publish successfully: the previous error must clear; no success card should remain.
 - Preparing a Hugging Face ZIP enables the Save ZIP action without a success banner; Google credential generation enables token save actions.
 - Local Kotlin smoke tests passed for success, no-op and failure cases; source regression and mock release checks passed. Android build and actual repository publishing still require CI/device verification.
+
+## 3.0.10 centered ZIP picker and release checks
+
+- The project ZIP chooser opens in a centered dialog with a bounded, scrollable list, not an anchored dropdown.
+- Check ZIP date/time, manual selection, newest-auto selection and ZIP folder settings in GitHub and Hugging Face.
+- Source regression and mocked stable-release checks derive their expected release version from `app/build.gradle.kts` rather than a stale literal. Android UI behavior still requires device/CI compilation.
