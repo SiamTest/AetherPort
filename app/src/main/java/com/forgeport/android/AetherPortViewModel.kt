@@ -54,6 +54,9 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         private set
     var zipFolderName by mutableStateOf(projectStore.folderName)
         private set
+    var downloadFolderEnabled by mutableStateOf(projectStore.downloadFolderEnabled)
+        private set
+    fun hasDownloadAccess(): Boolean = projectStore.hasDownloadAccess()
     var archiveError by mutableStateOf<String?>(null)
         private set
     var archivesLoading by mutableStateOf(false)
@@ -118,9 +121,25 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
             projectStore.configureFolder(uri)
             zipFolderUri = projectStore.folderUri
             zipFolderName = projectStore.folderName
+            downloadFolderEnabled = projectStore.downloadFolderEnabled
             projectArchives = emptyList()
             refreshArchives()
         }
+    }
+
+    fun useDownloadFolder() {
+        runBusy {
+            projectStore.configureDownloadFolder()
+            zipFolderUri = projectStore.folderUri
+            zipFolderName = projectStore.folderName
+            downloadFolderEnabled = projectStore.downloadFolderEnabled
+            projectArchives = emptyList()
+            refreshArchives()
+        }
+    }
+
+    fun reportDownloadPermissionFailure(message: String = "Storage access was not granted. Your previous ZIP folder is unchanged.") {
+        statusMessage = message
     }
 
     fun clearZipFolder() {
@@ -128,6 +147,7 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
             projectStore.clearFolder()
             zipFolderUri = null
             zipFolderName = ""
+            downloadFolderEnabled = false
             projectArchives = emptyList()
             refreshArchives()
         }

@@ -69,8 +69,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.4"' in build
-assert 'versionCode = 3000020' in build
+assert 'versionName = "3.0.5"' in build
+assert 'versionCode = 3000021' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
@@ -291,3 +291,20 @@ for path in ['ui/AetherPortApp.kt', 'ui/RepositoryPickers.kt', 'ui/EhentaiScreen
     assert 'ExpressiveIconButton as IconButton' in source, path
 assert 'MaterialExpressiveTheme' not in theme, 'Keep compatible stable Material 3 APIs.'
 print('expressive components and responsive bindings: OK')
+
+# Download uses direct read access only after explicit opt-in, shared by both publishers.
+assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in manifest
+assert 'android.permission.READ_EXTERNAL_STORAGE' in manifest and 'android:maxSdkVersion="29"' in manifest
+for marker in ['Build.VERSION.SDK_INT >= 30', 'Environment.isExternalStorageManager()', 'Environment.DIRECTORY_DOWNLOADS', 'directDownloadZips(downloadDirectory)', 'sourceFile?.inputStream()', 'checkedDownloadZip(downloadDirectory', 'return@withContext newestArchives(archives)']:
+    assert marker in project_store, marker
+configure_download = project_store.split('suspend fun configureDownloadFolder()', 1)[1].split('suspend fun configureFolder', 1)[0]
+assert configure_download.index('requireDownloadAccess()') < configure_download.index('settings.edit()')
+assert configure_download.index('directDownloadZips(downloadDirectory)') < configure_download.index('settings.edit()')
+for marker in ['ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', 'ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION', 'ActivityResultContracts.StartActivityForResult()', 'vm.hasDownloadAccess()', 'vm.useDownloadFolder()', 'All files access', 'Use Download', 'vm.zipFolderUri == null && !vm.downloadFolderEnabled']:
+    assert marker in pickers, marker
+files = (root / 'app/src/main/java/com/forgeport/android/data/DownloadArchiveFiles.kt').read_text()
+assert 'source.parentFile == root' in files
+assert 'source.name.endsWith(".zip", ignoreCase = true)' in files
+assert 'delete' not in files and 'walk' not in files
+assert (root / 'app/src/test/java/com/forgeport/android/data/DownloadArchiveFilesTest.kt').is_file()
+print('direct Download access and permission bindings: OK')

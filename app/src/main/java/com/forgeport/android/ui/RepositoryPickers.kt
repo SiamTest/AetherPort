@@ -7,6 +7,11 @@ import com.forgeport.android.ui.theme.ExpressiveTextButton as TextButton
 import com.forgeport.android.ui.theme.ExpressiveIconButton as IconButton
 import com.forgeport.android.ui.theme.ExpressiveFilterChip as FilterChip
 import com.forgeport.android.ui.theme.ExpressiveDialog as AlertDialog
+import android.Manifest
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,17 +37,41 @@ import java.util.Date
 internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit) {
     LaunchedEffect(Unit) { vm.clearStatus() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::configureZipFolder) }
+    val context = LocalContext.current
+    val allFiles = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (vm.hasDownloadAccess()) vm.useDownloadFolder() else vm.reportDownloadPermissionFailure()
+    }
+    val legacyStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && vm.hasDownloadAccess()) vm.useDownloadFolder() else vm.reportDownloadPermissionFailure()
+    }
+    fun useDownload() {
+        if (vm.hasDownloadAccess()) vm.useDownloadFolder()
+        else if (Build.VERSION.SDK_INT >= 30) {
+            val intents = listOf(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}")),
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+            )
+            if (intents.none { intent -> runCatching { allFiles.launch(intent) }.isSuccess }) {
+                vm.reportDownloadPermissionFailure("Open Android Settings, search for All files access, and enable AetherPort. Then tap Use Download again.")
+            }
+        } else legacyStorage.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
     AlertDialog(
         onDismissRequest = dismiss, title = { Text("Settings") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Project ZIP folder", style = MaterialTheme.typography.titleMedium)
                 Text(vm.zipFolderName.ifBlank { "No folder selected" })
-                Text("ZIPs in this folder appear in GitHub and Hugging Face, newest first. Choose a dedicated folder, such as Downloads/AetherPort.")
-                FilledTonalButton(onClick = { picker.launch(vm.zipFolderUri?.let(Uri::parse)) }, enabled = !vm.busy) {
+                Text("ZIPs in the selected folder appear in GitHub and Hugging Face, newest first.")
+                if (Build.VERSION.SDK_INT >= 30) Text("Using Download directly requires Android's All files access. This permission allows access across shared storage; AetherPort uses it to read ZIP files directly in Download. Root is not required.")
+                else Text("Using Download directly requires storage permission. AetherPort reads its ZIP files without changing the originals.")
+                FilledTonalButton(onClick = ::useDownload, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (vm.downloadFolderEnabled && !vm.hasDownloadAccess()) "Allow Download access" else "Use Download")
+                }
+                OutlinedButton(onClick = { picker.launch(vm.zipFolderUri?.let(Uri::parse)) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (vm.zipFolderUri == null) "Choose folder" else "Change folder")
                 }
-                if (vm.zipFolderUri != null) TextButton(onClick = vm::clearZipFolder, enabled = !vm.busy) { Text("Disconnect folder") }
+                if (vm.zipFolderUri != null || vm.downloadFolderEnabled) TextButton(onClick = vm::clearZipFolder, enabled = !vm.busy) { Text("Disconnect folder") }
                 vm.archiveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 vm.statusMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
@@ -78,7 +107,7 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
         }
         if (vm.archivesLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         vm.archiveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (vm.zipFolderUri == null) TextButton(onClick = { settings = true }) { Text("Set ZIP folder in Settings") }
+        if (vm.zipFolderUri == null && !vm.downloadFolderEnabled) TextButton(onClick = { settings = true }) { Text("Set ZIP folder in Settings") }
         else Text("${vm.zipFolderName} • newest ZIPs first", style = MaterialTheme.typography.bodySmall)
     }
 }

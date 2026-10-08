@@ -2,7 +2,7 @@
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.4
+**Version:** 3.0.5
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -16,7 +16,7 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - **GitHub** contains **Publish / Projects** tabs. **Hugging Face** contains **Publish / Download / Projects** tabs. ZIP folder selection and publishing stay within those sections; forms and scroll positions survive tab switches. Shared staged projects can be used by either source.
 - **Google** contains authorization and token exports. **E-Hentai** contains browsing, reading, library/history and downloads. **Variables** and **Updates** remain their own sections.
 - Staged projects contains only **Your staged projects**.
-- **Settings → Project ZIP folder** grants persistent read access to a folder. Its direct-child ZIPs appear newest first in both publish forms and refresh on return to the app or when opening the project picker. Choose a dedicated subfolder, such as Downloads/AetherPort; Android may prevent selecting the Downloads root. Existing staged projects remain available after the ZIP list.
+- **Settings → Project ZIP folder → Use Download** lists ZIPs directly in the device's primary **Download** folder, newest first, for both GitHub and Hugging Face. Android 11+ requires explicit **All files access**; Android 8–10 uses storage permission. Root is not required. Android's permission covers shared storage broadly; this feature only reads top-level ZIPs in Download, with no recursive scanning or source-file deletion. **Choose folder** still provides persistent read-only access through the folder picker. Existing staged projects remain available after the ZIP list.
 - A new mint-and-cyan portal mark appears on the launcher, splash screen, and drawer; Material 3 surfaces use the matching palette with a plain black dark background.
 - ZIPs are extracted only when publishing, with traversal and size checks. Temporary extracted copies are cleaned after success or failure; source ZIPs stay untouched. Choose ZIP/upload controls have been removed.
 - Variables are encrypted with Android Keystore-backed AES-GCM.
@@ -34,6 +34,14 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - **Browse / Library / Downloads** bottom tabs keep the gallery experience native. Library opens saved titles and reading progress; Downloads has offline counts, live progress, and pause/resume controls.
 - The Overview no longer shows the old “Local-first project tools” banner.
 - In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
+
+## Using the Download folder directly
+
+Open the Settings gear, tap **Use Download**, enable AetherPort's **All files access** in Android Settings, then return. No subfolder is needed: keep project ZIPs directly in Download. APKs, other files, folders and ZIPs inside subfolders are excluded. ZIPs are sorted newest first and share the same project selector in GitHub and Hugging Face.
+
+The choice persists across restarts. Returning to the app, opening the selector or tapping Refresh rereads the folder. If access is denied, the previous source stays selected; if access is later revoked, a recoverable message and **Allow Download access** action appear in Settings. **Choose folder** changes back to a picker-selected source, and **Disconnect folder** stops using that source. Disconnecting does not revoke Android's special permission; that permission can be disabled in Android Settings.
+
+Direct Download mode uses native Android storage access, not the restricted folder picker. Source ZIPs are rechecked before publishing and extracted only into temporary private storage, retaining existing compressed/extracted size and path-traversal checks. This APK distribution requests optional `MANAGE_EXTERNAL_STORAGE`; Google Play publication would require checking the platform's restricted-permission policy separately.
 
 ## Expressive UI and responsive layouts
 
@@ -68,7 +76,7 @@ It:
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
 7. creates `aetherport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.4`) with the APK, checksum, and update manifest.
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.5`) with the APK, checksum, and update manifest.
 
 Every successful non-PR run publishes a stable GitHub release and marks it **Latest**, including when the application version still contains an alpha/beta/RC suffix. Rerunning a version uploads the new assets and promotes an existing prerelease/draft to a stable published release. The update manifest always reports `prerelease: false`.
 
@@ -105,7 +113,7 @@ The **Automatic update pop-ups** preference is enabled by default and is stored 
 
 Use **Updates → Change update repository** to correct an older build's source with an `owner/repository` value or GitHub repository URL. The selection persists. For private releases, save the matching `GITHUB_TOKEN_<OWNER>` variable (or one unambiguous `GITHUB_TOKEN` variable) in **Variables**. The existing encrypted variable store is reused; credentials are sent only to the HTTPS GitHub API, and private APK/checksum downloads use the release-asset API. Missing repositories, expired tokens, rate limits and unpublished releases now have actionable messages.
 
-Version `3.0.4` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
+Version `3.0.5` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
 
 The default update repository can also be overridden at build time with:
 

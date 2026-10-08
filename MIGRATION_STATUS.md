@@ -27,7 +27,7 @@
 
 ## Android UI and identity
 
-- Current stable version: `3.0.4` / code `3000020`.
+- Current stable version: `3.0.5` / code `3000021`.
 
 - Rebranded to AetherPort with a mint-and-cyan portal logo, launcher/splash/drawer updates, and stable version `3.0.0` / code `3000016`.
 - The drawer contains only GitHub, Hugging Face, Google, E-Hentai, Variables and Updates. GitHub uses Publish/Projects tabs; Hugging Face uses Publish/Download/Projects tabs. These tools share their parent section instead of separate app-level routes, and form state is saved per tab.

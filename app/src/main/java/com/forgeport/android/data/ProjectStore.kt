@@ -1,5 +1,9 @@
 package com.forgeport.android.data
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Environment
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -25,8 +29,25 @@ import java.util.zip.ZipInputStream
 class ProjectStore(private val context: Context) {
     private val projectsRoot = File(context.filesDir, "staged_projects")
     private val settings = context.getSharedPreferences("forgeport_project_settings", Context.MODE_PRIVATE)
-    val folderUri: String? get() = settings.getString("zip_folder", null)
-    val folderName: String get() = settings.getString("zip_folder_name", "").orEmpty()
+    val downloadFolderEnabled: Boolean get() = settings.getBoolean("download_folder", false)
+    val folderUri: String? get() = if (downloadFolderEnabled) null else settings.getString("zip_folder", null)
+    val folderName: String get() = if (downloadFolderEnabled) "Download" else settings.getString("zip_folder_name", "").orEmpty()
+    private val downloadDirectory: File get() = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+
+    fun hasDownloadAccess(): Boolean = if (Build.VERSION.SDK_INT >= 30) Environment.isExternalStorageManager()
+        else context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+
+    private fun requireDownloadAccess() {
+        check(hasDownloadAccess()) { "Download access is off. Open Settings and allow storage access, or choose another ZIP folder." }
+    }
+
+    suspend fun configureDownloadFolder() = withContext(Dispatchers.IO) {
+        requireDownloadAccess()
+        directDownloadZips(downloadDirectory) // Validate storage before replacing the current selection.
+        val old = folderUri
+        settings.edit().putBoolean("download_folder", true).remove("zip_folder").remove("zip_folder_name").apply()
+        old?.let(::releaseFolder)
+    }
 
     suspend fun configureFolder(uri: Uri) = withContext(Dispatchers.IO) {
         require(uri.scheme == "content") { "Choose a folder using Android's folder picker." }
@@ -34,13 +55,13 @@ class ProjectStore(private val context: Context) {
         check(folder.isDirectory && folder.canRead()) { "Choose a readable ZIP folder." }
         val old = folderUri
         context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        settings.edit().putString("zip_folder", uri.toString()).putString("zip_folder_name", folder.name.orEmpty()).apply()
+        settings.edit().remove("download_folder").putString("zip_folder", uri.toString()).putString("zip_folder_name", folder.name.orEmpty()).apply()
         if (old != null && old != uri.toString()) releaseFolder(old)
     }
 
     suspend fun clearFolder() = withContext(Dispatchers.IO) {
         val old = folderUri
-        settings.edit().remove("zip_folder").remove("zip_folder_name").apply()
+        settings.edit().remove("download_folder").remove("zip_folder").remove("zip_folder_name").apply()
         old?.let(::releaseFolder)
     }
 
@@ -49,6 +70,14 @@ class ProjectStore(private val context: Context) {
     }
 
     suspend fun listArchives(): List<ProjectArchive> = withContext(Dispatchers.IO) {
+        if (downloadFolderEnabled) {
+            requireDownloadAccess()
+            val archives = directDownloadZips(downloadDirectory).map { file ->
+                currentCoroutineContext().ensureActive()
+                ProjectArchive(Uri.fromFile(file).toString(), file.name, file.lastModified().coerceAtLeast(0), file.length())
+            }
+            return@withContext newestArchives(archives)
+        }
         val tree = folderUri?.let(Uri::parse) ?: return@withContext emptyList()
         check(context.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isReadPermission }) {
             "Folder access was lost. Choose the ZIP folder again in Settings."
@@ -73,18 +102,23 @@ class ProjectStore(private val context: Context) {
     }
 
     suspend fun stageArchive(uri: String): StagedProject {
-        // Rescan the configured tree rather than accepting an arbitrary external URI.
+        // Rescan either source before accepting an external URI. Original ZIPs stay untouched.
         check(listArchives().any { it.uri == uri }) { "This ZIP is no longer in the configured folder. Refresh the project list." }
         return stageZip(Uri.parse(uri))
     }
 
-    suspend fun stageZip(uri: Uri): StagedProject = withContext(Dispatchers.IO) {
+    private suspend fun stageZip(uri: Uri): StagedProject = withContext(Dispatchers.IO) {
+        val sourceFile = if (uri.scheme == "file") {
+            check(downloadFolderEnabled) { "Select Download in Settings first." }
+            requireDownloadAccess()
+            checkedDownloadZip(downloadDirectory, File(requireNotNull(uri.path)))
+        } else null
         projectsRoot.mkdirs()
         val resolver = context.contentResolver
-        val displayName = queryDisplayName(resolver, uri) ?: "project.zip"
+        val displayName = sourceFile?.name ?: queryDisplayName(resolver, uri) ?: "project.zip"
         require(displayName.lowercase().endsWith(".zip")) { "Only ZIP archives are supported." }
 
-        val compressedSize = querySize(resolver, uri)
+        val compressedSize = sourceFile?.length() ?: querySize(resolver, uri)
         if (compressedSize != null) {
             require(compressedSize <= MAX_UPLOAD_BYTES) { "ZIP is larger than 500 MB." }
         }
@@ -97,7 +131,7 @@ class ProjectStore(private val context: Context) {
         var streamedCompressed = 0L
 
         try {
-            resolver.openInputStream(uri)?.use { raw ->
+            (sourceFile?.inputStream() ?: resolver.openInputStream(uri))?.use { raw ->
                 val counting = object : java.io.FilterInputStream(BufferedInputStream(raw)) {
                     override fun read(): Int {
                         val result = super.read()

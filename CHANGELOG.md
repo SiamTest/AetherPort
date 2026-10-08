@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.5 — Direct Download folder access
+
+- Added **Settings → Use Download** to read ZIPs directly in the primary Download folder for GitHub and Hugging Face. Android 11+ opens the native All files access grant; Android 8–10 uses runtime storage permission. No root or subfolder is required.
+- Persisted the source choice, retained picker-selected folders, and refreshed lists on return/open/manual refresh. Denied permissions preserve the prior selection; revoked access has a recovery message. Settings explains the broader Android permission before requesting it.
+- Only readable, top-level ZIPs are included and sorted newest first. Files outside Download, symlink escapes, nested ZIPs and other file types are excluded; source archives stay untouched and the existing private extraction/size/path checks are reused.
+- Added a filesystem regression covering enumeration, ordering, unchanged originals, symlink boundaries, vanished files and missing storage. Stable version code is `3000021`.
+
 ## 3.0.4
 
 - Applied Material 3 Expressive principles using stable Compose components: mint/cyan and gallery-orange color roles, stronger typography, varied rounded/asymmetric shapes, and consistent spacing.
