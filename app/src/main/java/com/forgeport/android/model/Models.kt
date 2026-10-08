@@ -28,6 +28,9 @@ data class OperationResult(
     val log: String = "",
 )
 
+/** Only unsuccessful operations should produce a user-visible status banner. */
+fun OperationResult.failureOrNull(): OperationResult? = takeUnless { it.ok }
+
 data class GoogleTokenBundle(
     val tokenJson: ByteArray,
     val tokenPickle: ByteArray,

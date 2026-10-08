@@ -89,8 +89,8 @@ assert 'prompt' in oauth and 'consent' in oauth
 assert 'PythonCredentialsPickle.create' in oauth
 
 build = (root / "app/build.gradle.kts").read_text()
-assert 'versionName = "3.0.8"' in build
-assert 'versionCode = 3000024' in build
+assert 'versionName = "3.0.9"' in build
+assert 'versionCode = 3000025' in build
 assert 'UPDATE_GITHUB_REPOSITORY' in build
 assert 'Chowdhury-Siam/ForgePort' in build
 assert 'androidx.core:core-ktx' in build
@@ -345,3 +345,12 @@ assert 'coverBitmaps.get' in screens and '8 * 1024 * 1024' in screens
 assert 'animateContentSize' not in components
 assert 'if (userAgent.isBlank())' in repository
 print('automatic ZIP selection, removed Downloads and smoother UI bindings: OK')
+
+# Successful publishing and credential generation do not produce status cards.
+assert 'val failure = result.failureOrNull()' in vm_source
+assert 'statusMessage = failure?.message?.ifBlank' in vm_source
+assert 'operationLog = failure?.log.orEmpty()' in vm_source
+assert 'statusMessage = "Repository ZIP is ready to save."' not in vm_source
+assert 'statusMessage = "Google credentials generated.' not in vm_source
+assert 'MaterialTheme.colorScheme.errorContainer' in ui
+assert (root / 'app/src/test/java/com/forgeport/android/model/OperationResultTest.kt').is_file()

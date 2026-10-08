@@ -444,15 +444,16 @@ private fun ScreenColumn(vm: AetherPortViewModel, content: @Composable ColumnSco
             Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            vm.statusMessage?.let {
+            // No confirmation card on success. This panel is reserved for failures.
+            vm.statusMessage?.let { failure ->
                 ElevatedCard(
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text(it, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Text(failure, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
                         if (vm.operationLog.isNotBlank()) {
                             Spacer(Modifier.height(6.dp))
-                            Text(vm.operationLog, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(vm.operationLog, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                         TextButton(onClick = vm::clearStatus, modifier = Modifier.align(Alignment.End)) { Text("Dismiss") }
                     }

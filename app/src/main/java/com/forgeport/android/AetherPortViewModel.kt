@@ -17,6 +17,7 @@ import com.forgeport.android.model.SecretVariable
 import com.forgeport.android.model.ProjectArchive
 import com.forgeport.android.model.PublishProject
 import com.forgeport.android.model.SavedRepository
+import com.forgeport.android.model.failureOrNull
 import com.forgeport.android.repo.RepoParsing
 import com.forgeport.android.oauth.GoogleOAuthService
 import com.forgeport.android.repo.RepositoryService
@@ -233,8 +234,8 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
                 .onSuccess {
                     pendingHfZip?.delete()
                     pendingHfZip = it
-                    statusMessage = "Repository ZIP is ready to save."
-                    operationLog = ""
+                    // The Save ZIP action becomes available; no success banner is necessary.
+                    clearStatus()
                 }
                 .onFailure {
                     statusMessage = it.message ?: "Hugging Face download failed."
@@ -256,7 +257,8 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
                 .filter { it.isNotBlank() }
                 .distinct()
             googleTokenBundle = googleOAuthService.authorizeWithDesktopCredentials(credentialsUri, scopes)
-            statusMessage = "Google credentials generated. Save token.pickle and token.json now."
+            // Save token.pickle and token.json buttons are shown by the UI.
+            clearStatus()
         }
     }
 
@@ -424,8 +426,9 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun applyResult(result: OperationResult) {
-        statusMessage = result.message
-        operationLog = result.log
+        val failure = result.failureOrNull()
+        statusMessage = failure?.message?.ifBlank { "Publishing failed." }
+        operationLog = failure?.log.orEmpty()
     }
 
     private fun runBusy(block: suspend () -> Unit) {

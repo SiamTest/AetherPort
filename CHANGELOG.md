@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.9 — Failure-only publish notifications
+
+- Publishing to GitHub or Hugging Face no longer shows a success notification or commit-status card after a successful push or a no-changes result.
+- Failed publishes still display their error details and diagnostic log in an error-styled status card; unexpected exceptions remain visible.
+- Successful Hugging Face ZIP preparation and Google credential generation now surface their follow-up save actions without an extra success message.
+- Added Kotlin regression coverage for successful, unchanged and failed operation feedback. Android app version `3.0.9` (code `3000025`).
+
 ## 3.0.8 — Automatic ZIP wrapper detection and simpler publishing
 
 - Automatically detects and removes one outer ZIP wrapper directory during GitHub and Hugging Face publishing, ignoring common archive metadata such as `__MACOSX` and `.DS_Store`. ZIPs with files directly at the root keep their original layout.

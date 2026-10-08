@@ -1,4 +1,4 @@
-# AetherPort 3.0.8 validation
+# AetherPort 3.0.9 validation
 
 ## Passed locally
 
@@ -29,3 +29,10 @@
 - ZIP with multiple top-level directories retains all directories. ZIP with only `src/` or `.github/` retains the directory name and contents; macOS `__MACOSX` artifacts do not prevent wrapper detection.
 - Verify that projects containing nothing except empty directories or ignored archive artifacts cannot be pushed. The original ZIP must never be modified.
 - Confirm account identity, GitHub/Hugging Face repository selection, branch handling, default commit text and successful push behavior on a real Android device. Local Kotlin tests do not test Android runtime or remote publishing.
+
+## 3.0.9 failure-only status messages
+
+- GitHub and Hugging Face: successful publish or no-op does not show a success banner; error responses (including authentication/permission and connectivity failures) display the error, log where available and Dismiss action.
+- Retry a failed publish successfully: the previous error must clear; no success card should remain.
+- Preparing a Hugging Face ZIP enables the Save ZIP action without a success banner; Google credential generation enables token save actions.
+- Local Kotlin smoke tests passed for success, no-op and failure cases; source regression and mock release checks passed. Android build and actual repository publishing still require CI/device verification.
