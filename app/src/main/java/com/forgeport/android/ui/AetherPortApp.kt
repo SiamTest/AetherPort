@@ -147,7 +147,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
     var variablesShowRepositories by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val backStack by nav.currentBackStackEntryAsState()
-    val currentRoute = backStack?.destination?.route ?: "home"
+    val currentRoute = backStack?.destination?.route ?: "github"
     val readerRoute = currentRoute.startsWith("reader/")
     val galleryRoute = currentRoute.startsWith("gallery/") || currentRoute.startsWith("ehentai/web/")
     val nativeGalleryRoute = currentRoute in setOf("ehentai", "gallery-library", "gallery-downloads") || currentRoute.startsWith("gallery/")
@@ -206,8 +206,9 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
             (vm.zipFolderUri != null || vm.downloadFolderEnabled)) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
-                    vm.refreshArchives(silent = true)
-                    delay(2_000)
+                    // Do not rescan storage while the user is scrolling the chooser.
+                    if (!vm.archivePickerVisible) vm.refreshArchives(silent = true)
+                    delay(10_000)
                 }
             }
         }
@@ -290,13 +291,12 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     NavHost(
-                        navController = nav, startDestination = "home",
+                        navController = nav, startDestination = "github",
                         enterTransition = { fadeIn(ExpressiveMotion.spatial()) + slideInHorizontally(ExpressiveMotion.spatial()) { it / 12 } },
                         exitTransition = { fadeOut(ExpressiveMotion.spatial()) + slideOutHorizontally(ExpressiveMotion.spatial()) { -it / 12 } },
                         popEnterTransition = { fadeIn(ExpressiveMotion.spatial()) + slideInHorizontally(ExpressiveMotion.spatial()) { -it / 12 } },
                         popExitTransition = { fadeOut(ExpressiveMotion.spatial()) + slideOutHorizontally(ExpressiveMotion.spatial()) { it / 12 } },
                     ) {
-                        composable("home") { HomeScreen() }
                         composable("github") { RepositorySection(vm, huggingFace = false) { variablesShowRepositories = true; nav.navigate("variables") } }
                         composable("huggingface") { RepositorySection(vm, huggingFace = true) { variablesShowRepositories = true; nav.navigate("variables") } }
                         composable("ehentai") {
@@ -470,34 +470,6 @@ private fun SectionHeader(title: String, description: String? = null, modifier: 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-    }
-}
-
-/** A clean landing page; all app features remain in the navigation drawer. */
-@Composable
-private fun HomeScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier.widthIn(max = 520.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                "Welcome to AetherPort",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                "Open the menu to get started.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }
 

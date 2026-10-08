@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -87,13 +90,19 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
     var chooser by rememberSaveable { mutableStateOf(false) }
     var settings by rememberSaveable { mutableStateOf(false) }
     if (settings) ProjectFolderSettings(vm) { settings = false }
-    if (chooser) ArchiveChooserDialog(
-        vm = vm,
-        selected = selected,
-        select = { id -> select(id); chooser = false },
-        dismiss = { chooser = false },
-        openSettings = { chooser = false; settings = true },
-    )
+    if (chooser) {
+        DisposableEffect(vm) {
+            vm.setArchivePickerVisible(true)
+            onDispose { vm.setArchivePickerVisible(false) }
+        }
+        ArchiveChooserDialog(
+            vm = vm,
+            selected = selected,
+            select = { id -> select(id); chooser = false },
+            dismiss = { chooser = false },
+            openSettings = { chooser = false; settings = true },
+        )
+    }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { vm.refreshArchives(); chooser = true }, enabled = !vm.busy, modifier = Modifier.weight(1f)) {
@@ -108,6 +117,9 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
     }
 }
 
+/** A bounded modal: only the virtualized ZIP list scrolls; the header and actions stay fixed.
+ * Using a direct Dialog avoids nesting LazyColumn inside ExpressiveDialog's scrollable text slot.
+ */
 @Composable
 private fun ArchiveChooserDialog(
     vm: AetherPortViewModel,
@@ -117,52 +129,78 @@ private fun ArchiveChooserDialog(
     openSettings: () -> Unit,
 ) {
     val dateFormat = remember { DateFormat.getDateTimeInstance() }
-    AlertDialog(
-        onDismissRequest = dismiss,
-        title = { Text("Choose project ZIP") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Select a ZIP to publish. Newest ZIPs appear first.")
-                if (vm.archivesLoading) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                        Text("Refreshing ZIP folder…", style = MaterialTheme.typography.bodyMedium)
-                    }
-                } else if (vm.publishProjects.isEmpty()) {
-                    Text("No ZIPs found.")
+    val scroll = rememberLazyListState()
+    val dialogHeight = (LocalConfiguration.current.screenHeightDp * 0.82f).dp
+    Dialog(onDismissRequest = dismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp).heightIn(max = dialogHeight),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Choose project ZIP", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Select a ZIP to publish. Newest ZIPs appear first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (vm.archivesLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (vm.publishProjects.isEmpty()) {
+                    Text(if (vm.archivesLoading) "Refreshing ZIP folder…" else "No ZIPs found.")
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                        state = scroll,
+                        modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (selected != vm.publishProjects.firstOrNull()?.id && vm.publishProjects.isNotEmpty()) {
-                            item("auto") {
-                                OutlinedButton(onClick = { select(vm.publishProjects.first().id) }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Use newest ZIP automatically")
+                        if (selected != vm.publishProjects.firstOrNull()?.id) {
+                            item(key = "automatic-newest") {
+                                Surface(
+                                    onClick = { select(vm.publishProjects.first().id) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = MaterialTheme.shapes.large,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                ) {
+                                    Text("Use newest ZIP automatically", Modifier.padding(14.dp), style = MaterialTheme.typography.bodyLarge)
                                 }
                             }
                         }
-                        items(vm.publishProjects, key = { it.id }) { project ->
-                            ElevatedCard(onClick = { select(project.id) }, modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(vm.publishProjects, key = { it.id }, contentType = { "archive" }) { project ->
+                            // Lightweight, stable rows: no per-row animated card or layout morph.
+                            Surface(
+                                onClick = { select(project.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                color = if (project.id == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                            ) {
+                                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(project.name, style = MaterialTheme.typography.titleMedium)
-                                    if (project.timestamp > 0) {
-                                        Text(
-                                            remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) },
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
-                                    }
+                                    if (project.timestamp > 0) Text(
+                                        remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
                     }
                 }
                 vm.archiveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TextButton(onClick = dismiss) { Text("Close") }
+                    TextButton(onClick = openSettings) { Text("ZIP folder Settings") }
+                }
             }
-        },
-        confirmButton = { TextButton(onClick = openSettings) { Text("ZIP folder Settings") } },
-        dismissButton = { TextButton(onClick = dismiss) { Text("Close") } },
-    )
+        }
+    }
 }
 
 @Composable

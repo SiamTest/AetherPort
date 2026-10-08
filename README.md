@@ -2,7 +2,7 @@
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.10
+**Version:** 3.0.11
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -31,7 +31,7 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - **Filter** supports categories, language, uploader, minimum rating, and page-count ranges. Latest sends these to the website; Popular filters the site's ranked popular list using the official metadata API.
 - Gallery details show a portrait cover, title, author, metadata, grouped tags, library/refresh/download actions, one Chapter row, and an orange Start/Continue button.
 - **Browse / Library / Downloads** bottom tabs keep the gallery experience native. Library opens saved titles and reading progress; Downloads has offline counts, live progress, and pause/resume controls.
-- Home now displays only a centered welcome message. All app sections remain accessible through the navigation drawer.
+- GitHub is the startup screen; the previous Home page is removed. All other sections remain accessible through the navigation drawer.
 - In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
 
 ## Using the Download folder directly
@@ -83,7 +83,7 @@ It:
 5. creates a SHA-256 checksum;
 6. uploads the APK as a workflow artifact; and
 7. creates `aetherport-update.json`; and
-8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.10`) with the APK, checksum, and update manifest.
+8. on non-PR runs, automatically creates or updates the GitHub Release tagged from `versionName` (for example `v3.0.11`) with the APK, checksum, and update manifest.
 
 Every successful non-PR run publishes a stable GitHub release and marks it **Latest**, including when the application version still contains an alpha/beta/RC suffix. Rerunning a version uploads the new assets and promotes an existing prerelease/draft to a stable published release. The update manifest always reports `prerelease: false`.
 
@@ -120,7 +120,7 @@ The **Automatic update pop-ups** preference is enabled by default and is stored 
 
 Use **Updates → Change update repository** to correct an older build's source with an `owner/repository` value or GitHub repository URL. The selection persists. For private releases, save the matching `GITHUB_TOKEN_<OWNER>` variable (or one unambiguous `GITHUB_TOKEN` variable) in **Variables**. The existing encrypted variable store is reused; credentials are sent only to the HTTPS GitHub API, and private APK/checksum downloads use the release-asset API. Missing repositories, expired tokens, rate limits and unpublished releases now have actionable messages.
 
-Version `3.0.10` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
+Version `3.0.11` is stable and upgrades earlier `3.0.0-alpha` builds when signed with the same key. Releases are marked Stable/Latest in GitHub and APK asset names use AetherPort.
 
 The default update repository can also be overridden at build time with:
 

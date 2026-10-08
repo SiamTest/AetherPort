@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.11 — GitHub startup and smooth ZIP picker
+
+- Removed the redundant Home destination; GitHub is now the app start destination and the first navigation drawer item.
+- Rebuilt the project ZIP picker using a directly bounded, centered Dialog. Only its lazy list scrolls; the title/actions stay in place and previously clipped options are visible after scrolling.
+- Replaced per-item animated ElevatedCards with lightweight clickable Surfaces and stable keyed lazy rows, retaining selected ZIP highlighting and newest-first behavior.
+- Pause periodic Download scans while the project picker is open; reduce foreground background scans from 2 to 10 seconds elsewhere. Opening the chooser still refreshes immediately.
+- Updated source regression checks and version metadata; no storage, credentials, or publishing changes.
+
 ## 3.0.10 — Centered ZIP picker and version-aware verification
 
 - Replaced the dropdown ZIP picker with a centered, scrollable Material 3 dialog for GitHub and Hugging Face. ZIP ordering, auto-newest selection, timestamps and folder settings are preserved.

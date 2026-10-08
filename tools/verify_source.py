@@ -36,12 +36,15 @@ assert 'ElevatedCard' in ui
 assert 'FilledTonalButton' in ui
 assert 'ic_aetherport_mark' in ui
 assert 'Local-first project tools' not in ui
-# Home is a text-only welcome page; repository secret keys stay internal.
-home = ui.split('private fun HomeScreen()', 1)[1].split('private fun TokenPicker(', 1)[0]
-assert 'Welcome to AetherPort' in home
-assert 'Open the menu to get started.' in home
-for removed_home_content in ('StatCard', 'Staged projects', 'Saved variables', 'Your workspace', 'GitHub', 'Hugging Face', 'ElevatedCard'):
-    assert removed_home_content not in home, removed_home_content
+# GitHub is the only start destination; the old Home page has been removed.
+assert 'startDestination = "github"' in ui
+assert '?: "github"' in ui
+assert 'composable("home")' not in ui and 'HomeScreen(' not in ui
+assert 'Destination("github", "GitHub", Icons.Filled.Code)' in ui
+# Do not continuously rescan Download while scrolling the archive dialog.
+assert 'if (!vm.archivePickerVisible) vm.refreshArchives(silent = true)' in ui
+assert 'delay(10_000)' in ui
+assert 'fun setArchivePickerVisible(visible: Boolean)' in vm_source
 pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.kt').read_text()
 chooser = pickers.split('internal fun RepositoryChooser(', 1)[1].split('internal fun SavedRepositoriesEditor(', 1)[0]
 editor = pickers.split('internal fun SavedRepositoriesEditor(', 1)[1].split('internal fun rememberArchiveSelection(', 1)[0]
@@ -51,8 +54,12 @@ assert 'Text(item.variableName' not in editor
 assert 'editingName = item.variableName' in editor  # editing/deleting remain bound to correct key
 # Project archives use a centered dialog; never an anchored dropdown menu.
 archive_chooser = pickers.split('internal fun ProjectSourcePicker(', 1)[1].split('internal fun RepositoryChooser(', 1)[0]
-assert 'ArchiveChooserDialog(' in archive_chooser and 'AlertDialog(' in archive_chooser
+assert 'ArchiveChooserDialog(' in archive_chooser and 'Dialog(' in archive_chooser
 assert 'LazyColumn(' in archive_chooser and 'Use newest ZIP automatically' in archive_chooser
+assert 'rememberLazyListState()' in archive_chooser and '.weight(1f, fill = false)' in archive_chooser
+assert 'Surface(' in archive_chooser and 'contentType = { "archive" }' in archive_chooser
+assert 'ElevatedCard(onClick' not in archive_chooser
+assert 'vm.setArchivePickerVisible(true)' in archive_chooser and 'onDispose { vm.setArchivePickerVisible(false) }' in archive_chooser
 assert 'DropdownMenu(' not in archive_chooser, 'Project ZIP chooser must remain a centered dialog.' 
 assert 'private fun UpdatesScreen' in ui
 assert 'Check for updates' in ui
@@ -343,7 +350,7 @@ print('direct Download access and permission bindings: OK')
 # Automatic ZIP discovery is foreground-only; changing UI state does not remap archives.
 assert 'derivedStateOf' in vm_source and 'staged:' not in vm_source
 assert 'repeatOnLifecycle(Lifecycle.State.RESUMED)' in ui
-assert 'vm.refreshArchives(silent = true)' in ui and 'delay(2_000)' in ui
+assert 'vm.refreshArchives(silent = true)' in ui and 'delay(10_000)' in ui
 assert 'selectedArchiveId(archives, manualId)' in pickers
 assert 'Use newest ZIP automatically' in pickers
 assert 'listProjects()' not in project_store

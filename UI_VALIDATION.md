@@ -1,4 +1,4 @@
-# AetherPort 3.0.10 validation
+# AetherPort 3.0.11 validation
 
 ## Passed locally
 
@@ -11,11 +11,11 @@
 
 `./gradlew --no-daemon testDebugUnitTest lintDebug` stopped before Android compilation because Gradle could not resolve the Kotlin Android plugin `2.1.20` from its configured repositories. Android compilation, the complete Android unit suite and lint have not completed. No APK was generated.
 
-- Static regression checks cover text-only Home and hidden repository variable keys while preserving selection/editing identities.
+- Static regression checks cover GitHub startup, removal of Home and hidden repository variable keys while preserving selection/editing identities.
 
 ## Device verification before distribution
 
-- Confirm the Home screen contains only centered welcome text and the GitHub/Hugging Face picker and saved-repositories editor display only repository paths, not variable names.
+- Confirm that app startup goes directly to GitHub, the drawer has no Home item and the GitHub/Hugging Face picker and saved-repositories editor display only repository paths, not variable names.
 - Compare scrolling/navigation on the same device/build type before and after this version; no frame-time benchmark or measured FPS claim has been made locally. Use a signed release APK to assess production performance, retaining the same signing key for upgrades.
 - Verify ZIP discovery on both providers after entering/resuming, adding/modifying/deleting ZIPs while the screen stays open, manually pinning an older ZIP, selecting automatic newest again, and changing/revoking the configured folder. Verify the chooser publishes the captured archive when a newer ZIP arrives while it is open.
 - Test Downloads removal after successful, partial, failed and paused transfers, with a restart; check that library/history remain and no active write can recreate removed offline pages.
@@ -42,3 +42,11 @@
 - The project ZIP chooser opens in a centered dialog with a bounded, scrollable list, not an anchored dropdown.
 - Check ZIP date/time, manual selection, newest-auto selection and ZIP folder settings in GitHub and Hugging Face.
 - Source regression and mocked stable-release checks derive their expected release version from `app/build.gradle.kts` rather than a stale literal. Android UI behavior still requires device/CI compilation.
+
+## 3.0.11 smooth ZIP picker / navigation tests
+
+- Launch app from a cold start and verify GitHub is the first page. Navigate elsewhere, press Back and reselect GitHub from drawer; no Home page should appear.
+- Open ZIP chooser with 50+ ZIPs, scroll rapidly and fling; list stays within centered modal and neither header nor buttons scroll. No parent verticalScroll wraps the lazy list.
+- Verify newest-first order, switching from newest to an older ZIP, explicitly choosing automatic newest, and refresh on reopening.
+- Add/remove files while dialog is open; close and reopen to pick up updates. No recurring disk scan should run while chooser stays open.
+- Repeat on small phone, landscape, tablet, and 200% font scale. CI/device frame metrics and Android compilation remain to be checked.
