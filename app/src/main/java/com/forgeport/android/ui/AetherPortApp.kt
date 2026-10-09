@@ -618,6 +618,89 @@ private fun VariablesScreen(vm: AetherPortViewModel, showRepositories: Boolean) 
     LaunchedEffect(showRepositories) { repositoriesTab = showRepositories }
     var name by rememberSaveable { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
+    var showExportPassword by remember { mutableStateOf(false) }
+    var exportPassword by remember { mutableStateOf("") }
+    var exportConfirmation by remember { mutableStateOf("") }
+    var pendingExportPassword by remember { mutableStateOf<String?>(null) }
+    var importUri by remember { mutableStateOf<Uri?>(null) }
+    var importPassword by remember { mutableStateOf("") }
+    var replaceImportedVariables by remember { mutableStateOf(false) }
+
+    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val password = pendingExportPassword
+        pendingExportPassword = null
+        if (uri != null && password != null) vm.exportCredentials(uri, password)
+    }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        importUri = uri
+        importPassword = ""
+        replaceImportedVariables = false
+    }
+
+    if (showExportPassword) AlertDialog(
+        onDismissRequest = { showExportPassword = false; exportPassword = ""; exportConfirmation = "" },
+        title = { Text("Export credentials") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Export all saved credentials and repository variables into a password-encrypted backup. Your Android Keystore key stays on this device.")
+                OutlinedTextField(
+                    value = exportPassword, onValueChange = { exportPassword = it },
+                    label = { Text("Backup password") },
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = exportConfirmation, onValueChange = { exportConfirmation = it },
+                    label = { Text("Confirm password") },
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Use at least 12 characters. Keep this password safe: without it, the backup cannot be restored.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    pendingExportPassword = exportPassword
+                    showExportPassword = false
+                    exportPassword = ""
+                    exportConfirmation = ""
+                    exportPicker.launch("AetherPort-credentials.aetherbackup")
+                },
+                enabled = exportPassword.length >= 12 && exportPassword == exportConfirmation && !vm.busy,
+            ) { Text("Choose location") }
+        },
+        dismissButton = { TextButton(onClick = { showExportPassword = false; exportPassword = ""; exportConfirmation = "" }) { Text("Cancel") } },
+    )
+    if (importUri != null) AlertDialog(
+        onDismissRequest = { importUri = null; importPassword = "" },
+        title = { Text("Import credentials") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Enter the password used to export this backup. Existing credentials will be preserved unless you choose to replace them.")
+                OutlinedTextField(
+                    value = importPassword, onValueChange = { importPassword = it },
+                    label = { Text("Backup password") },
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = replaceImportedVariables, onCheckedChange = { replaceImportedVariables = it })
+                    Text("Replace matching variables")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val uri = importUri ?: return@TextButton
+                vm.importCredentials(uri, importPassword, replaceImportedVariables)
+                importUri = null
+                importPassword = ""
+            }, enabled = importPassword.isNotEmpty() && !vm.busy) { Text("Import") }
+        },
+        dismissButton = { TextButton(onClick = { importUri = null; importPassword = "" }) { Text("Cancel") } },
+    )
     ScreenColumn(vm) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FilterChip(!repositoriesTab, onClick = { repositoriesTab = false }, label = { Text("Credentials") })
@@ -631,7 +714,30 @@ private fun VariablesScreen(vm: AetherPortViewModel, showRepositories: Boolean) 
                     SectionHeader("Variables", "Values are encrypted locally with Android Keystore.")
                     OutlinedTextField(name, { name = it }, label = { Text("Variable name") }, placeholder = { Text("GITHUB_TOKEN_USERNAME") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value, { value = it }, label = { Text("Value") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions.Default, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Button(onClick = { vm.saveVariable(name, value); value = "" }, enabled = name.isNotBlank() && value.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Save variable") }
+                    Button(onClick = { vm.saveVariable(name, value); value = "" }, enabled = name.isNotBlank() && value.isNotEmpty() && !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Save variable") }
+                    Text("Credential backup", style = MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = {
+                            vm.clearCredentialBackupStatus()
+                            showExportPassword = true
+                        }, enabled = vm.variables.isNotEmpty() && !vm.busy, modifier = Modifier.weight(1f)) {
+                            Text("Export")
+                        }
+                        FilledTonalButton(onClick = {
+                            vm.clearCredentialBackupStatus()
+                            importPicker.launch(arrayOf("*/*"))
+                        }, enabled = !vm.busy, modifier = Modifier.weight(1f)) {
+                            Text("Import")
+                        }
+                    }
+                    Text("Password-protected backup of credentials and saved repositories.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    vm.credentialBackupMessage?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    vm.credentialBackupError?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
                     val credentials = vm.variables.filter { variable -> vm.savedRepositories.none { it.variableName == variable.name } }
                     if (credentials.isEmpty()) {
                         ElevatedCard { Text("No saved variables.", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }

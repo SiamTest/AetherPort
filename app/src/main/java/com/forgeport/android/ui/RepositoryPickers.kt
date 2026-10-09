@@ -16,6 +16,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -46,8 +47,9 @@ internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit)
     val allFiles = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (vm.hasDownloadAccess()) vm.useDownloadFolder() else vm.reportDownloadPermissionFailure()
     }
-    val legacyStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && vm.hasDownloadAccess()) vm.useDownloadFolder() else vm.reportDownloadPermissionFailure()
+    val legacyStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.all { it } && vm.hasDownloadAccess()) vm.useDownloadFolder()
+        else vm.reportDownloadPermissionFailure()
     }
     fun useDownload() {
         if (vm.hasDownloadAccess()) vm.useDownloadFolder()
@@ -59,7 +61,7 @@ internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit)
             if (intents.none { intent -> runCatching { allFiles.launch(intent) }.isSuccess }) {
                 vm.reportDownloadPermissionFailure("Open Android Settings, search for All files access, and enable AetherPort. Then tap Use Download again.")
             }
-        } else legacyStorage.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+        } else legacyStorage.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE))
     }
     AlertDialog(
         onDismissRequest = dismiss, title = { Text("Settings") },
@@ -68,8 +70,8 @@ internal fun ProjectFolderSettings(vm: AetherPortViewModel, dismiss: () -> Unit)
                 Text("Project ZIP folder", style = MaterialTheme.typography.titleMedium)
                 Text(vm.zipFolderName.ifBlank { "No folder selected" })
                 Text("ZIPs in the selected folder appear in GitHub and Hugging Face, newest first.")
-                if (Build.VERSION.SDK_INT >= 30) Text("Using Download directly requires Android's All files access. This permission allows access across shared storage; AetherPort uses it to read ZIP files directly in Download. Root is not required.")
-                else Text("Using Download directly requires storage permission. AetherPort reads its ZIP files without changing the originals.")
+                if (Build.VERSION.SDK_INT >= 30) Text("Using Download directly requires Android's All files access. This permission allows access across shared storage; AetherPort uses it to access top-level ZIP files in Download. Confirmed deletion permanently removes the original ZIP. Root is not required.")
+                else Text("Using Download directly requires storage permission. AetherPort reads ZIPs and deletes an original only when you confirm Delete.")
                 FilledTonalButton(onClick = ::useDownload, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (vm.downloadFolderEnabled && !vm.hasDownloadAccess()) "Allow Download access" else "Use Download")
                 }
@@ -105,7 +107,7 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { vm.refreshArchives(); chooser = true }, enabled = !vm.busy, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = { vm.clearArchiveDeleteError(); vm.refreshArchives(); chooser = true }, enabled = !vm.busy, modifier = Modifier.weight(1f)) {
                 Text(vm.publishProjects.firstOrNull { it.id == selected }?.name ?: "Select project ZIP")
             }
             IconButton(onClick = vm::refreshArchives, enabled = !vm.archivesLoading && !vm.busy) { Icon(Icons.Filled.Refresh, "Refresh project ZIPs") }
@@ -131,6 +133,8 @@ private fun ArchiveChooserDialog(
     val dateFormat = remember { DateFormat.getDateTimeInstance() }
     val scroll = rememberLazyListState()
     val dialogHeight = (LocalConfiguration.current.screenHeightDp * 0.82f).dp
+    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    val pendingDelete = vm.publishProjects.firstOrNull { it.id == pendingDeleteId }
     Dialog(onDismissRequest = dismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp).heightIn(max = dialogHeight),
@@ -148,7 +152,7 @@ private fun ArchiveChooserDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (vm.archivesLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (vm.archivesLoading || vm.deletingArchiveId != null) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (vm.publishProjects.isEmpty()) {
                     Text(if (vm.archivesLoading) "Refreshing ZIP folder…" else "No ZIPs found.")
                 } else {
@@ -170,26 +174,37 @@ private fun ArchiveChooserDialog(
                             }
                         }
                         items(vm.publishProjects, key = { it.id }, contentType = { "archive" }) { project ->
-                            // Lightweight, stable rows: no per-row animated card or layout morph.
+                            // Separate click targets: tap text to select, or the trash icon to delete.
                             Surface(
-                                onClick = { select(project.id) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.large,
                                 color = if (project.id == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                             ) {
-                                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(project.name, style = MaterialTheme.typography.titleMedium)
-                                    if (project.timestamp > 0) Text(
-                                        remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                            .clickable(enabled = !vm.busy && vm.deletingArchiveId == null) { select(project.id) }
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Text(project.name, style = MaterialTheme.typography.titleMedium)
+                                        if (project.timestamp > 0) Text(
+                                            remember(project.timestamp) { dateFormat.format(Date(project.timestamp)) },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { vm.clearArchiveDeleteError(); pendingDeleteId = project.id },
+                                        enabled = !vm.busy && vm.deletingArchiveId == null,
+                                    ) { Icon(Icons.Filled.Delete, contentDescription = "Delete ${project.name}", tint = MaterialTheme.colorScheme.error) }
                                 }
                             }
                         }
                     }
                 }
                 vm.archiveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                vm.archiveDeleteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -201,6 +216,17 @@ private fun ArchiveChooserDialog(
             }
         }
     }
+    if (pendingDelete != null) AlertDialog(
+        onDismissRequest = { pendingDeleteId = null },
+        title = { Text("Delete ZIP file?") },
+        text = { Text("Permanently delete ${pendingDelete.name} from ${vm.zipFolderName.ifBlank { "the selected folder" }}? This cannot be undone.") },
+        confirmButton = { TextButton(
+            onClick = { vm.deleteArchive(pendingDelete.id); pendingDeleteId = null },
+            enabled = !vm.busy && vm.deletingArchiveId == null,
+        ) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("Cancel") } },
+    )
+
 }
 
 @Composable

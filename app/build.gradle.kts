@@ -17,8 +17,8 @@ android {
         applicationId = "com.forgeport.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3000029
-        versionName = "3.0.13"
+        versionCode = 3000031
+        versionName = "3.0.15"
 
         buildConfigField("String", "UPDATE_GITHUB_REPOSITORY", "\"$updateGithubRepository\"")
 

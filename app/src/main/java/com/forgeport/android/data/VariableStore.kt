@@ -31,12 +31,7 @@ class VariableStore(context: Context) {
             "huggingface" -> RepoParsing.normalizeHuggingFaceSpace(value)
             else -> value
         }
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val ciphertext = cipher.doFinal(storedValue.toByteArray(Charsets.UTF_8))
-        val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + "." +
-            Base64.encodeToString(ciphertext, Base64.NO_WRAP)
-        prefs.edit().putString(PREFIX + name, packed).apply()
+        prefs.edit().putString(PREFIX + name, encryptStored(storedValue)).apply()
     }
 
     fun get(nameRaw: String): String? {
@@ -53,6 +48,48 @@ class VariableStore(context: Context) {
 
     fun delete(nameRaw: String) {
         prefs.edit().remove(PREFIX + normalizeName(nameRaw)).apply()
+    }
+
+    /** Export all encrypted variables, including saved repository names/paths. */
+    fun exportPortableBackup(password: CharArray): ByteArray {
+        val names = prefs.all.keys.filter { it.startsWith(PREFIX) }.map { it.removePrefix(PREFIX) }.sorted()
+        val records = names.map { name ->
+            CredentialBackupCodec.Entry(name, get(name) ?: error("Could not decrypt $name for backup."))
+        }
+        return CredentialBackupCodec.encrypt(records, password)
+    }
+
+    data class RestoreReport(val restored: Int, val skipped: Int)
+
+    /** Parse and validate every entry BEFORE changing preferences; commit all changes atomically. */
+    fun importPortableBackup(backup: ByteArray, password: CharArray, replaceExisting: Boolean): RestoreReport {
+        val records = CredentialBackupCodec.decrypt(backup, password)
+        val validated = records.map { record ->
+            val name = normalizeName(record.name)
+            val value = when (RepoParsing.repositoryKind(name)) {
+                "github" -> RepoParsing.normalizeGitHubRepo(record.value)
+                "huggingface" -> RepoParsing.normalizeHuggingFaceSpace(record.value)
+                else -> record.value
+            }
+            name to value
+        }
+        val available = validated.filter { (name, _) -> replaceExisting || !prefs.contains(PREFIX + name) }
+        // Prepare the entire encrypted batch before starting the preference transaction.
+        val encrypted = available.map { (name, value) -> name to encryptStored(value) }
+        if (encrypted.isNotEmpty()) {
+            val editor = prefs.edit()
+            encrypted.forEach { (name, value) -> editor.putString(PREFIX + name, value) }
+            check(editor.commit()) { "Could not save imported credentials." }
+        }
+        return RestoreReport(encrypted.size, validated.size - encrypted.size)
+    }
+
+    private fun encryptStored(value: String): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + "." +
+            Base64.encodeToString(ciphertext, Base64.NO_WRAP)
     }
 
     fun resolveGitHubToken(repoUrl: String): Pair<String, String>? {

@@ -54,7 +54,14 @@ class ProjectStore(private val context: Context) {
         val folder = requireNotNull(DocumentFile.fromTreeUri(context, uri)) { "This folder is unavailable." }
         check(folder.isDirectory && folder.canRead()) { "Choose a readable ZIP folder." }
         val old = folderUri
-        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // Persist write permission for deleting ZIPs, falling back to read-only on restricted providers.
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        } catch (_: SecurityException) {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
         settings.edit().remove("download_folder").putString("zip_folder", uri.toString()).putString("zip_folder_name", folder.name.orEmpty()).apply()
         if (old != null && old != uri.toString()) releaseFolder(old)
     }
@@ -66,7 +73,14 @@ class ProjectStore(private val context: Context) {
     }
 
     private fun releaseFolder(uri: String) {
-        runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        runCatching {
+            val tree = Uri.parse(uri)
+            val flags = context.contentResolver.persistedUriPermissions.firstOrNull { it.uri == tree }?.let {
+                (if (it.isReadPermission) Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or
+                    (if (it.isWritePermission) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+            } ?: 0
+            if (flags != 0) context.contentResolver.releasePersistableUriPermission(tree, flags)
+        }
     }
 
     suspend fun listArchives(): List<ProjectArchive> = withContext(Dispatchers.IO) {
@@ -99,6 +113,30 @@ class ProjectStore(private val context: Context) {
             }
         }
         newestArchives(archives)
+    }
+
+    /** Delete the original ZIP from storage, never merely remove a list entry. */
+    suspend fun deleteArchive(uri: String) = withContext(Dispatchers.IO) {
+        check(listArchives().any { it.uri == uri }) {
+            "This ZIP is no longer in the configured folder. Refresh the ZIP list."
+        }
+        val selected = Uri.parse(uri)
+        if (downloadFolderEnabled) {
+            requireDownloadAccess()
+            check(selected.scheme == "file") { "Invalid Download ZIP URI." }
+            deleteDownloadZip(downloadDirectory, File(requireNotNull(selected.path)))
+        } else {
+            val tree = folderUri?.let(Uri::parse) ?: error("Choose a ZIP folder in Settings.")
+            check(selected.scheme == "content" && DocumentsContract.isDocumentUri(context, selected)) {
+                "Invalid ZIP folder document."
+            }
+            check(context.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isWritePermission }) {
+                "This folder is read-only. Choose it again in ZIP folder Settings to grant write access."
+            }
+            check(DocumentsContract.deleteDocument(context.contentResolver, selected)) {
+                "Could not delete this ZIP from the selected folder. Check folder write access."
+            }
+        }
     }
 
     suspend fun stageArchive(uri: String): StagedProject {

@@ -1,3 +1,20 @@
+## 3.0.15 — Delete original ZIPs from the project chooser
+
+- Add a delete button to each ZIP entry in the GitHub/Hugging Face centered picker, with a separate confirmation dialog.
+- Permanently delete the original ZIP from the configured Download folder or SAF document tree, rather than just removing its UI entry.
+- Check write permissions and report deletion failures without hiding the file; guard direct Download deletion against files outside Download, directories, and path traversal/symlinks.
+- Refresh available ZIPs after deletion, automatically falling back to the newest remaining ZIP when the selected ZIP was removed.
+- Preserve the efficient, centered, virtualized ZIP chooser and existing publishing flows.
+- Advance Android app to 3.0.15 (versionCode 3000031).
+
+## 3.0.14 — Portable encrypted credential backups
+
+- Added password-protected export and import to Variables > Credentials, using Android's file picker.
+- Includes all saved credential and repository variables; variable names and values are encrypted with PBKDF2-HMAC-SHA256 (210,000 iterations) and AES-256-GCM.
+- Import validates the complete backup before changing data, skips existing names by default, and can replace matches when explicitly selected.
+- Original Android Keystore-backed storage remains unchanged; backup passwords are never stored in app preferences.
+- Added a focused cryptographic round-trip and corruption regression test.
+
 ## 3.0.13 — Unified Material 3 Expressive gallery theme
 
 - Remove the gallery-specific orange/gray theme and reuse AetherPort's green Material 3 color tokens on every native E-Hentai screen.

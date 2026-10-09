@@ -30,4 +30,36 @@ class DownloadArchiveFilesTest {
             assertThrows(IllegalStateException::class.java) { directDownloadZips(File(directory, "missing")) }
         } finally { directory.deleteRecursively() }
     }
+
+    @Test fun deleteDownloadZipActuallyRemovesTheFileAndTheListEntry() {
+        val root = Files.createTempDirectory("aetherport-delete").toFile()
+        try {
+            val download = File(root, "Download").apply { mkdir() }
+            val other = File(download, "keep.zip").apply { writeText("keep") }
+            val doomed = File(download, "delete.zip").apply { writeText("delete") }
+            deleteDownloadZip(download, doomed)
+            assertFalse(doomed.exists())
+            assertEquals(listOf(other), directDownloadZips(download))
+            assertThrows(IllegalArgumentException::class.java) { deleteDownloadZip(download, doomed) }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun deleteRejectsNonZipsDirectoriesAndSymlinksOutsideDownload() {
+        val root = Files.createTempDirectory("aetherport-delete-security").toFile()
+        try {
+            val download = File(root, "Download").apply { mkdir() }
+            val outside = File(root, "outside.zip").apply { writeText("preserve") }
+            val nonZip = File(download, "keep.txt").apply { writeText("preserve") }
+            val directory = File(download, "folder.zip").apply { mkdir() }
+            val alias = File(download, "outside-link.zip")
+            Files.createSymbolicLink(alias.toPath(), outside.toPath())
+            for (invalid in listOf(outside, nonZip, directory, alias)) {
+                assertThrows(IllegalArgumentException::class.java) { deleteDownloadZip(download, invalid) }
+            }
+            assertEquals("preserve", outside.readText())
+            assertEquals("preserve", nonZip.readText())
+            assertTrue(directory.isDirectory)
+        } finally { root.deleteRecursively() }
+    }
+
 }

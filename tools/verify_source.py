@@ -99,6 +99,17 @@ assert 'resolveGitHubToken' in repo
 vars_src = (root / "app/src/main/java/com/forgeport/android/data/VariableStore.kt").read_text()
 assert 'AndroidKeyStore' in vars_src
 assert 'AES/GCM/NoPadding' in vars_src
+assert 'exportPortableBackup' in vars_src and 'importPortableBackup' in vars_src
+assert 'CredentialBackupCodec.encrypt' in vars_src and 'CredentialBackupCodec.decrypt' in vars_src
+assert 'editor.commit()' in vars_src, 'Restore must be atomic.'
+codec = (root / 'app/src/main/java/com/forgeport/android/data/CredentialBackupCodec.kt').read_text()
+assert 'PBKDF2WithHmacSHA256' in codec and 'AES/GCM/NoPadding' in codec
+assert 'cipher.updateAAD(magic)' in codec and 'Wrong password or damaged credential backup.' in codec
+assert (root / 'app/src/test/java/com/forgeport/android/data/CredentialBackupCodecTest.kt').is_file()
+assert 'fun exportCredentials(uri: Uri, password: String)' in vm_source
+assert 'fun importCredentials(uri: Uri, password: String, replaceExisting: Boolean)' in vm_source
+assert 'CreateDocument("application/octet-stream")' in ui
+assert 'OpenDocument()' in ui and 'Replace matching variables' in ui
 
 oauth = (root / "app/src/main/java/com/forgeport/android/oauth/GoogleOAuthService.kt").read_text()
 assert '127.0.0.1' in oauth
@@ -299,7 +310,7 @@ for marker in ['Text("Auto-scroll")', 'valueRange = 1f..60f', 'Lifecycle.State.R
     assert marker in reader, marker
 print("account attribution and gallery controls: OK")
 
-# A single persisted folder powers both publishers; original archives are never deleted.
+# A single persisted folder powers both publishers; deletion is explicit and permanent.
 pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.kt').read_text()
 project_store = (root / 'app/src/main/java/com/forgeport/android/data/ProjectStore.kt').read_text()
 assert 'OutlinedTextField(repo,' not in forms and 'var repo by' not in forms
@@ -310,7 +321,14 @@ for marker in ['ActivityResultContracts.OpenDocumentTree()', 'Choose folder', 'M
     assert marker in pickers, marker
 for marker in ['takePersistableUriPermission', 'Intent.FLAG_GRANT_READ_URI_PERMISSION', 'buildChildDocumentsUriUsingTree', 'COLUMN_LAST_MODIFIED', 'newestArchives(archives)', 'listArchives().any { it.uri == uri }', 'MAX_UPLOAD_BYTES', 'MAX_EXTRACTED_BYTES', 'safeTarget(dir, entry.name)']:
     assert marker in project_store, marker
-assert 'DocumentsContract.deleteDocument' not in project_store
+assert 'DocumentsContract.deleteDocument(context.contentResolver, selected)' in project_store
+assert 'isWritePermission' in project_store and 'Intent.FLAG_GRANT_WRITE_URI_PERMISSION' in project_store
+assert 'fun deleteArchive(uri: String)' in project_store
+assert 'fun deleteArchive(id: String)' in vm_source
+assert 'projectArchives = projectArchives.filterNot' in vm_source
+assert 'vm.archiveDeleteError' in pickers and 'pendingDeleteId' in pickers
+assert 'Delete ZIP file?' in pickers and 'Permanently delete' in pickers
+assert 'Icons.Filled.Delete' in pickers
 assert 'finally { withContext(NonCancellable) { projectStore.delete(temporary.name) } }' in vm_source
 assert 'variableStore.savedRepositories()' in vm_source
 assert 'RepoParsing.repositoryKind(name)' in vars_src
@@ -335,7 +353,7 @@ for path in ['ui/AetherPortApp.kt', 'ui/RepositoryPickers.kt', 'ui/EhentaiScreen
 assert 'MaterialExpressiveTheme' not in theme, 'Keep compatible stable Material 3 APIs.'
 print('expressive components and responsive bindings: OK')
 
-# Download uses direct read access only after explicit opt-in, shared by both publishers.
+# Download requires explicit storage access; deletion is user-confirmed.
 assert 'android.permission.MANAGE_EXTERNAL_STORAGE' in manifest
 assert 'android.permission.READ_EXTERNAL_STORAGE' in manifest and 'android:maxSdkVersion="29"' in manifest
 for marker in ['Build.VERSION.SDK_INT >= 30', 'Environment.isExternalStorageManager()', 'Environment.DIRECTORY_DOWNLOADS', 'directDownloadZips(downloadDirectory)', 'sourceFile?.inputStream()', 'checkedDownloadZip(downloadDirectory', 'return@withContext newestArchives(archives)']:
@@ -348,7 +366,10 @@ for marker in ['ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', 'ACTION_MANAGE_A
 files = (root / 'app/src/main/java/com/forgeport/android/data/DownloadArchiveFiles.kt').read_text()
 assert 'source.parentFile == root' in files
 assert 'source.name.endsWith(".zip", ignoreCase = true)' in files
-assert 'delete' not in files and 'walk' not in files
+assert 'deleteDownloadZip' in files and 'archive.delete() && !archive.exists()' in files
+assert 'checkedDownloadZip(directory, selected)' in files
+assert 'walk' not in files
+assert 'android.permission.WRITE_EXTERNAL_STORAGE' in manifest
 assert (root / 'app/src/test/java/com/forgeport/android/data/DownloadArchiveFilesTest.kt').is_file()
 print('direct Download access and permission bindings: OK')
 

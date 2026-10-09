@@ -20,3 +20,12 @@ internal fun checkedDownloadZip(directory: File, file: File): File {
     }
     return source
 }
+
+
+/** Delete an actual top-level Download ZIP; never follow a symlink or remove a directory. */
+internal fun deleteDownloadZip(directory: File, selected: File) {
+    val archive = checkedDownloadZip(directory, selected)
+    check(archive.delete() && !archive.exists()) {
+        "Could not delete ${archive.name} from Download. Check storage permissions."
+    }
+}

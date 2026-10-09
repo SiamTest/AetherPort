@@ -31,6 +31,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.ByteArrayOutputStream
 
 class AetherPortViewModel(application: Application) : AndroidViewModel(application) {
     private val projectStore = ProjectStore(application)
@@ -42,6 +43,10 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
     private var startupUpdateCheckDone = false
 
     var variables by mutableStateOf<List<SecretVariable>>(emptyList())
+        private set
+    var credentialBackupMessage by mutableStateOf<String?>(null)
+        private set
+    var credentialBackupError by mutableStateOf<String?>(null)
         private set
     var hfTokenNames by mutableStateOf<List<String>>(emptyList())
         private set
@@ -57,6 +62,10 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         private set
     fun hasDownloadAccess(): Boolean = projectStore.hasDownloadAccess()
     var archiveError by mutableStateOf<String?>(null)
+        private set
+    var archiveDeleteError by mutableStateOf<String?>(null)
+        private set
+    var deletingArchiveId by mutableStateOf<String?>(null)
         private set
     var archivesLoading by mutableStateOf(false)
         private set
@@ -176,6 +185,40 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** Delete from storage and refresh so the selected ZIP falls back to the newest survivor. */
+    fun deleteArchive(id: String) {
+        if (busy || deletingArchiveId != null) return
+        val existing = publishProjects.firstOrNull { it.id == id } ?: run {
+            archiveDeleteError = "ZIP is no longer available. Refresh the list."
+            return
+        }
+        if (!existing.id.startsWith("zip:")) return
+        deletingArchiveId = id
+        busy = true
+        archiveDeleteError = null
+        viewModelScope.launch {
+            try {
+                val uri = existing.id.removePrefix("zip:")
+                projectStore.deleteArchive(uri)
+                // Prevent an in-flight scan from repopulating a deleted entry.
+                archiveRequest++
+                archiveJob?.cancel()
+                projectArchives = projectArchives.filterNot { it.uri == uri }
+                refreshArchives()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                archiveDeleteError = failure.message ?: "Unable to delete the ZIP from storage."
+                refreshArchives()
+            } finally {
+                deletingArchiveId = null
+                busy = false
+            }
+        }
+    }
+
+    fun clearArchiveDeleteError() { archiveDeleteError = null }
+
     fun saveVariable(name: String, value: String) {
         runBusy {
             withContext(Dispatchers.IO) { variableStore.put(name, value) }
@@ -187,6 +230,65 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         runBusy {
             withContext(Dispatchers.IO) { variableStore.delete(name) }
             refreshVariables()
+        }
+    }
+
+    fun clearCredentialBackupStatus() {
+        credentialBackupMessage = null
+        credentialBackupError = null
+    }
+
+    /** Uses Android's document picker; no storage permission or device-specific key export. */
+    fun exportCredentials(uri: Uri, password: String) {
+        if (busy) return
+        clearCredentialBackupStatus()
+        runBusy {
+            val secret = password.toCharArray()
+            try {
+                withContext(Dispatchers.IO) {
+                    val bytes = try { variableStore.exportPortableBackup(secret) } finally { secret.fill('\u0000') }
+                    try {
+                        getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use { stream ->
+                            stream.write(bytes)
+                            stream.flush()
+                        } ?: error("Could not open the selected backup destination.")
+                    } finally { bytes.fill(0) }
+                }
+                credentialBackupMessage = "Encrypted credential backup exported. Keep your password safe."
+            } catch (failure: Exception) {
+                credentialBackupError = "Export failed: ${failure.message ?: "Could not save backup."}"
+            } finally { secret.fill('\u0000') }
+        }
+    }
+
+    fun importCredentials(uri: Uri, password: String, replaceExisting: Boolean) {
+        if (busy) return
+        clearCredentialBackupStatus()
+        runBusy {
+            val secret = password.toCharArray()
+            try {
+                val report = withContext(Dispatchers.IO) {
+                    val resolver = getApplication<Application>().contentResolver
+                    val bytes = resolver.openInputStream(uri)?.use { stream ->
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = stream.read(buffer)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            require(output.size() + count <= 2 * 1024 * 1024) { "Backup file is too large." }
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    } ?: error("Could not read the selected backup file.")
+                    try { variableStore.importPortableBackup(bytes, secret, replaceExisting) }
+                    finally { secret.fill('\u0000'); bytes.fill(0) }
+                }
+                refreshVariables()
+                credentialBackupMessage = "Imported ${report.restored} variable(s); skipped ${report.skipped} existing variable(s)."
+            } catch (failure: Exception) {
+                credentialBackupError = "Import failed: ${failure.message ?: "Could not restore credentials."}"
+            } finally { secret.fill('\u0000') }
         }
     }
 

@@ -2,7 +2,7 @@
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.11
+**Version:** 3.0.15
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -15,7 +15,7 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - The navigation drawer has exactly six sections: **GitHub, Hugging Face, Google, E-Hentai, Variables, Updates**.
 - **GitHub** opens its Publish form directly. **Hugging Face** contains **Publish / Download** tabs with saved form/scroll state. The Projects screen and persistent staged-project selection have been removed; ZIPs are extracted temporarily only for publishing.
 - **Google** contains authorization and token exports. **E-Hentai** contains browsing, reading, library/history and downloads. **Variables** and **Updates** remain their own sections.
-- **Settings → Project ZIP folder → Use Download** lists ZIPs directly in the device's primary **Download** folder, newest first, for both GitHub and Hugging Face. Android 11+ requires explicit **All files access**; Android 8–10 uses storage permission. Root is not required. Android's permission covers shared storage broadly; this feature only reads top-level ZIPs in Download, with no recursive scanning or source-file deletion. **Choose folder** still provides persistent read-only access through the folder picker. The newest ZIP is selected automatically; explicit older selections remain available in a centered picker dialog.
+- **Settings → Project ZIP folder → Use Download** lists ZIPs directly in the device's primary **Download** folder, newest first, for both GitHub and Hugging Face. Android 11+ requires explicit **All files access**; Android 8–10 uses storage permission. Root is not required. Android's permission covers shared storage broadly; this feature accesses top-level ZIPs in Download without recursive scanning. Tap a trash icon in the centered ZIP chooser and confirm to **permanently delete the original ZIP** from Download, not merely hide it from the app. **Choose folder** uses persistent document access and requests write permission for deletions; if permission is read-only, reselect the folder in ZIP folder Settings. The newest ZIP is selected automatically; explicit older selections remain available.
 - A new mint-and-cyan portal mark appears on the launcher, splash screen, and drawer; Material 3 surfaces use the matching palette with a plain black dark background.
 - ZIPs are extracted only when publishing, with traversal and size checks. Temporary extracted copies are cleaned after success or failure; source ZIPs stay untouched. Choose ZIP/upload controls have been removed.
 - Variables are encrypted with Android Keystore-backed AES-GCM.
@@ -27,18 +27,18 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - Gallery downloads and resumes show a centered **1–100% slider** and exact count before starting. The first selected pages are downloaded in reading order (rounded up); existing pages are skipped and kept, and the selection persists for resume.
 - Google OAuth uses a Desktop OAuth `credentials.json`, local `127.0.0.1` callback, offline access, and exports `token.pickle` / `token.json`.
 - AetherPort has its own adaptive, round, monochrome, legacy, and Android 12+ splash logo resources.
-- **E-Hentai** has a black-and-orange native catalogue with Popular, Latest, search, an adaptive portrait-cover grid, and a list toggle.
+- **E-Hentai** has a unified mint/green Material 3 native catalogue with Popular, Latest, search, an adaptive portrait-cover grid, and a list toggle.
 - **Filter** supports categories, language, uploader, minimum rating, and page-count ranges. Latest sends these to the website; Popular filters the site's ranked popular list using the official metadata API.
-- Gallery details show a portrait cover, title, author, metadata, grouped tags, library/refresh/download actions, one Chapter row, and an orange Start/Continue button.
+- Gallery details show a portrait cover, title, author, metadata, grouped tags, library/refresh/download actions, one Chapter row, and a theme-colored Start/Continue button.
 - **Browse / Library / Downloads** bottom tabs keep the gallery experience native. Library opens saved titles and reading progress; Downloads has offline counts, live progress, and pause/resume controls.
 - GitHub is the startup screen; the previous Home page is removed. All other sections remain accessible through the navigation drawer.
 - In-app updates check GitHub Releases on launch, support a persistent automatic-pop-up preference, show release notes, download with animated progress, verify SHA-256, and automatically continue into Android’s package installer.
 
 ## Using the Download folder directly
 
-Open the Settings gear, tap **Use Download**, enable AetherPort's **All files access** in Android Settings, then return. No subfolder is needed: keep project ZIPs directly in Download. APKs, other files, folders and ZIPs inside subfolders are excluded. ZIPs are sorted newest first and share the same project selector in GitHub and Hugging Face.
+Open the Settings gear, tap **Use Download**, enable AetherPort's **All files access** in Android Settings, then return. No subfolder is needed: keep project ZIPs directly in Download. APKs, other files, folders and ZIPs inside subfolders are excluded. ZIPs are sorted newest first and share the same project selector in GitHub and Hugging Face. The chooser can delete a ZIP from the configured source after confirmation; this cannot be undone. A failed deletion reports an error and leaves the file available.
 
-The choice persists across restarts. Returning to the app, opening the selector or tapping Refresh rereads the folder. While GitHub or Hugging Face is visible and resumed, a lightweight background scan refreshes the list every two seconds without a loading-bar flash. Automatic selection follows the newest ZIP. Choosing an older ZIP pins it until it disappears or **Use newest ZIP automatically** is selected; the archive is captured when Publish opens the repository chooser. If access is denied, the previous source stays selected; if access is later revoked, a recoverable message and **Allow Download access** action appear in Settings. **Choose folder** changes back to a picker-selected source, and **Disconnect folder** stops using that source. Disconnecting does not revoke Android's special permission; that permission can be disabled in Android Settings.
+The choice persists across restarts. Returning to the app, opening the selector or tapping Refresh rereads the folder. While GitHub or Hugging Face is visible and resumed, a lightweight background scan refreshes the list every ten seconds (pausing while the archive picker is open) without a loading-bar flash. Automatic selection follows the newest ZIP. Choosing an older ZIP pins it until it disappears or **Use newest ZIP automatically** is selected; the archive is captured when Publish opens the repository chooser. If access is denied, the previous source stays selected; if access is later revoked, a recoverable message and **Allow Download access** action appear in Settings. **Choose folder** changes back to a picker-selected source, and **Disconnect folder** stops using that source. Disconnecting does not revoke Android's special permission; that permission can be disabled in Android Settings.
 
 Publishing to GitHub or Hugging Face automatically examines the extracted ZIP: one outer folder is removed when it is a wrapper, while flat or mixed root entries stay in place. Recognizable project directories (`src/`, `app/`, `.github/`, and similar) are retained when they are the only folder. The upload always replaces contents at the **repository root**, preserving `.git`; there is no manual wrapper toggle or target-path entry. Inspect changes in GitHub/Hugging Face after publishing if the archive layout is unusual.
 
@@ -46,7 +46,7 @@ Direct Download mode uses native Android storage access, not the restricted fold
 
 ## Expressive UI and responsive layouts
 
-The shared theme uses accessible color roles, a clear typography hierarchy, pill-shaped actions, rounded fields/dialogs/navigation, and asymmetric cards. GitHub, Hugging Face, Google, Variables and Updates share the mint/cyan identity; native gallery screens retain black and orange.
+The shared theme uses accessible color roles, a clear typography hierarchy, pill-shaped actions, rounded fields/dialogs/navigation, and asymmetric cards. GitHub, Hugging Face, Google, Variables and Updates share the mint/cyan identity; native gallery screens now use the shared mint/green palette.
 
 Stable Material 3 components provide semantics, ripples and minimum touch targets. Reusable wrappers add spring-based press/shape feedback, selection and dialog entry. Frequently changing cards use stable layout instead of animating every size change; dedicated expanding controls retain their spring transitions. Navigation and tab changes use spring transitions; search, gallery metadata and reader controls expand smoothly. Animations use Compose's system duration scale and stop animating when Android animations are disabled. This implementation uses stable Compose APIs rather than the prerelease `MaterialExpressiveTheme` or polygon `MaterialShapes` APIs.
 
@@ -249,3 +249,7 @@ There is no GitHub token selector on the GitHub publishing page. AetherPort matc
 - Saved variable values are encrypted using Android Keystore-backed AES-GCM.
 - Google client credentials and generated tokens are not sent to a AetherPort server.
 - File access uses Android's document picker rather than broad storage permissions.
+
+### Back up credentials
+
+In **Variables → Credentials**, choose **Export credentials**, create a backup password (at least 12 characters), and save the `.aetherbackup` file through the Android file picker. This exports all variables, including saved repository entries, in a password-encrypted file, not in plaintext. To restore, choose **Import credentials**, select the same file, and enter the original password. Existing names are skipped unless **Replace matching variables** is selected. Passwords cannot be recovered if lost. Keep backup files and passwords separate and private. Normal local credential storage remains encrypted with Android Keystore.
