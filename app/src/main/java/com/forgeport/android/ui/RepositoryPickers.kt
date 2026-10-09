@@ -92,8 +92,8 @@ internal fun ProjectSourcePicker(vm: AetherPortViewModel, selected: String, sele
     if (settings) ProjectFolderSettings(vm) { settings = false }
     if (chooser) {
         DisposableEffect(vm) {
-            vm.setArchivePickerVisible(true)
-            onDispose { vm.setArchivePickerVisible(false) }
+            vm.updateArchivePickerVisibility(true)
+            onDispose { vm.updateArchivePickerVisibility(false) }
         }
         ArchiveChooserDialog(
             vm = vm,

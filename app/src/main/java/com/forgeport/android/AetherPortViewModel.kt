@@ -59,13 +59,13 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
     var archiveError by mutableStateOf<String?>(null)
         private set
     var archivesLoading by mutableStateOf(false)
+        private set
 
     /** Pause periodic disk scans while a user scrolls the ZIP chooser. */
     var archivePickerVisible by mutableStateOf(false)
         private set
 
-    fun setArchivePickerVisible(visible: Boolean) { archivePickerVisible = visible }
-        private set
+    fun updateArchivePickerVisibility(visible: Boolean) { archivePickerVisible = visible }
     private var archiveRequest = 0
     private var archiveJob: Job? = null
     val publishProjects by derivedStateOf {

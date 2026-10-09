@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.12 — Kotlin compilation fix
+
+- Corrected a misplaced `private set` in `AetherPortViewModel.kt` that caused `compileDebugKotlin` to fail with `Expecting member declaration` at line 68. Renamed the visibility mutation method to avoid a generated JVM setter signature clash.
+- Added a source regression guard for the ViewModel's property accessors. Kept navigation, ZIP picker behavior, credentials and all publishing features unchanged.
+- Advanced Android version to `3.0.12` (code `3000028`).
+
 ## 3.0.11 — GitHub startup and smooth ZIP picker
 
 - Removed the redundant Home destination; GitHub is now the app start destination and the first navigation drawer item.

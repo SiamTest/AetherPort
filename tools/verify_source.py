@@ -44,7 +44,12 @@ assert 'Destination("github", "GitHub", Icons.Filled.Code)' in ui
 # Do not continuously rescan Download while scrolling the archive dialog.
 assert 'if (!vm.archivePickerVisible) vm.refreshArchives(silent = true)' in ui
 assert 'delay(10_000)' in ui
-assert 'fun setArchivePickerVisible(visible: Boolean)' in vm_source
+assert 'fun updateArchivePickerVisibility(visible: Boolean)' in vm_source
+assert 'fun setArchivePickerVisible(' not in vm_source, 'Avoid JVM setter signature clash for archivePickerVisible.'
+# Compile regression: a delegated property's `private set` must immediately
+# follow that property's declaration; a stray accessor after a function is invalid Kotlin.
+assert re.search(r'var archivesLoading by mutableStateOf\(false\)\s*\n\s*private set\b', vm_source)
+assert not re.search(r'fun updateArchivePickerVisibility\([^\n]+\n\s*private set\b', vm_source)
 pickers = (root / 'app/src/main/java/com/forgeport/android/ui/RepositoryPickers.kt').read_text()
 chooser = pickers.split('internal fun RepositoryChooser(', 1)[1].split('internal fun SavedRepositoriesEditor(', 1)[0]
 editor = pickers.split('internal fun SavedRepositoriesEditor(', 1)[1].split('internal fun rememberArchiveSelection(', 1)[0]
@@ -59,7 +64,7 @@ assert 'LazyColumn(' in archive_chooser and 'Use newest ZIP automatically' in ar
 assert 'rememberLazyListState()' in archive_chooser and '.weight(1f, fill = false)' in archive_chooser
 assert 'Surface(' in archive_chooser and 'contentType = { "archive" }' in archive_chooser
 assert 'ElevatedCard(onClick' not in archive_chooser
-assert 'vm.setArchivePickerVisible(true)' in archive_chooser and 'onDispose { vm.setArchivePickerVisible(false) }' in archive_chooser
+assert 'vm.updateArchivePickerVisibility(true)' in archive_chooser and 'onDispose { vm.updateArchivePickerVisibility(false) }' in archive_chooser
 assert 'DropdownMenu(' not in archive_chooser, 'Project ZIP chooser must remain a centered dialog.' 
 assert 'private fun UpdatesScreen' in ui
 assert 'Check for updates' in ui
