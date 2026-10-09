@@ -106,7 +106,7 @@ internal fun GalleryDetailsScreen(
     val downloadAction = gallery?.let { rememberGalleryDownloadAction(vm, it, status) }
     Scaffold(
         topBar = {
-            TopAppBar(title = {}, navigationIcon = {
+            CenterAlignedTopAppBar(title = { Text("Gallery details", style = MaterialTheme.typography.titleLarge) }, navigationIcon = {
                 IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             }, actions = {
                 if (gallery != null && downloadAction != null) IconButton(onClick = downloadAction, enabled = status.running || status.queued || gallery.downloaded < gallery.pages.size) {
@@ -125,7 +125,7 @@ internal fun GalleryDetailsScreen(
                             onClick = { menu = false; confirmDelete = true })
                     }
                 }
-            })
+            }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface))
         },
         floatingActionButton = {
             if (gallery != null) ExtendedFloatingActionButton(
@@ -315,7 +315,7 @@ private fun GalleryDownloadButton(vm: GalleryViewModel, gallery: Gallery, status
 internal fun GalleryNavigationBar(selected: String, browse: () -> Unit, library: () -> Unit, downloads: () -> Unit) {
     val colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary,
         selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer)
-    NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
         NavigationBarItem(selected == "browse", onClick = browse, icon = { Icon(Icons.Filled.Explore, null) }, label = { Text("Browse") }, colors = colors)
         NavigationBarItem(selected == "library", onClick = library, icon = { Icon(Icons.Filled.LibraryBooks, null) }, label = { Text("Library") }, colors = colors)
         NavigationBarItem(selected == "downloads", onClick = downloads, icon = { Icon(Icons.Filled.Download, null) }, label = { Text("Downloads") }, colors = colors)
@@ -345,7 +345,7 @@ internal fun GalleryLibraryScreen(
         dismissButton = { TextButton(onClick = { confirmHistory = false }) { Text("Cancel") } },
     )
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (downloadsOnly) "Downloads" else if (history) "History" else "Gallery library", maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = {
+        topBar = { CenterAlignedTopAppBar(title = { Text(if (downloadsOnly) "Downloads" else if (history) "History" else "Gallery library", maxLines = 1, overflow = TextOverflow.Ellipsis) }, navigationIcon = {
             IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         }, actions = {
             if (!downloadsOnly) Box {
@@ -355,7 +355,7 @@ internal fun GalleryLibraryScreen(
                     DropdownMenuItem(text = { Text("Delete all history") }, onClick = { menu = false; confirmHistory = true })
                 }
             }
-        }) },
+        }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)) },
         bottomBar = { GalleryNavigationBar(if (downloadsOnly) "downloads" else "library", browse, library, downloadsPage) },
     ) { padding ->
         AdaptiveContent(Modifier.padding(padding)) {

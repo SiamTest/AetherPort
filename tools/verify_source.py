@@ -180,7 +180,7 @@ assert '"tools"' not in workflow
 assert 'Destination("ehentai", "E-Hentai", Icons.Filled.Public)' in ui
 assert 'GalleryCatalogScreen(galleryVm' in ui
 assert '!readerRoute && !nativeGalleryRoute' in ui
-assert 'GalleryColorScheme' in ui
+assert 'GalleryColorScheme' not in ui, 'Gallery must use the same AetherPort Material 3 theme.'
 for marker in ['GalleryDetailsScreen(', 'GalleryReaderScreen(', 'GalleryLibraryScreen(', 'Uri.encode(url)', 'gesturesEnabled = !readerRoute']:
     assert marker in ui, marker
 browser = (root / 'app/src/main/java/com/forgeport/android/ui/EhentaiScreen.kt').read_text()
@@ -376,3 +376,17 @@ assert 'statusMessage = "Repository ZIP is ready to save."' not in vm_source
 assert 'statusMessage = "Google credentials generated.' not in vm_source
 assert 'MaterialTheme.colorScheme.errorContainer' in ui
 assert (root / 'app/src/test/java/com/forgeport/android/model/OperationResultTest.kt').is_file()
+
+# Regression: no gallery-only color scheme, hardcoded orange palette, or independent system-bar appearance.
+theme = (root / 'app/src/main/java/com/forgeport/android/ui/theme/Theme.kt').read_text()
+assert 'GalleryColorScheme' not in theme
+assert '0xFFF9811A' not in theme
+assert 'MaterialTheme(colorScheme = MaterialTheme.colorScheme)' in ui
+assert 'isAppearanceLightStatusBars' not in ui
+catalog = (gallery_root / 'GalleryCatalogScreen.kt').read_text()
+assert 'CenterAlignedTopAppBar(' in catalog and 'ElevatedCard(' in catalog
+assert 'Column(Modifier.heightIn(max = 450.dp).verticalScroll' not in catalog
+gallery_screens = (gallery_root / 'GalleryScreens.kt').read_text()
+assert gallery_screens.count('CenterAlignedTopAppBar(') >= 2
+assert 'MaterialTheme.colorScheme.surfaceContainerLow' in gallery_screens
+assert 'MaterialTheme.colorScheme.background' in reader

@@ -152,7 +152,7 @@ internal fun EhentaiScreen(
                     Icon(Icons.Filled.Search, contentDescription = "Search website")
                 }
             },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
         if (state.loading) {
             LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth())
@@ -269,7 +269,7 @@ internal fun EhentaiScreen(
                 }
             }
         }
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large) {
             Column {
                 Text(
                     state.title,

@@ -5,6 +5,7 @@ import com.forgeport.android.ui.theme.ExpressiveOutlinedButton as OutlinedButton
 import com.forgeport.android.ui.theme.ExpressiveTextButton as TextButton
 import com.forgeport.android.ui.theme.ExpressiveIconButton as IconButton
 import com.forgeport.android.ui.theme.ExpressiveDialog as AlertDialog
+import com.forgeport.android.ui.theme.ExpressiveCard as ElevatedCard
 import com.forgeport.android.ui.theme.ExpressiveFilterChip as FilterChip
 import com.forgeport.android.ui.theme.AdaptiveContent
 import com.forgeport.android.ui.theme.contentColumns
@@ -96,8 +97,8 @@ internal fun GalleryCatalogScreen(
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text("E-Hentai", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                CenterAlignedTopAppBar(
+                    title = { Text("E-Hentai", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                     actions = {
                         IconButton(onClick = { searchOpen = !searchOpen }) { Icon(Icons.Filled.Search, "Search galleries") }
@@ -111,6 +112,7 @@ internal fun GalleryCatalogScreen(
                             }
                         }
                     },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
                 AnimatedVisibility(searchOpen, enter = expandVertically(ExpressiveMotion.spatial()) + fadeIn(ExpressiveMotion.spatial()), exit = shrinkVertically(ExpressiveMotion.spatial()) + fadeOut(ExpressiveMotion.spatial())) {
                     OutlinedTextField(
@@ -133,7 +135,7 @@ internal fun GalleryCatalogScreen(
                         TextButton(onClick = { search = ""; vm.browse(query = "", filters = GalleryFilters()) }) { Text("Clear") }
                     }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         },
         bottomBar = { GalleryNavigationBar("browse", browse = {}, library = library, downloads = downloads) },
@@ -154,9 +156,11 @@ internal fun GalleryCatalogScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
                         ) {
                             items(state.items, key = { it.url }) { item ->
-                                Column(Modifier.fillMaxWidth().clickable { open(item.url) }) {
+                                ElevatedCard(
+                                    onClick = { open(item.url) }, modifier = Modifier.fillMaxWidth(),
+                                ) {
                                     GalleryCover(vm.repository, item.cover, item.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small))
-                                    Text(item.title, Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    Text(item.title, Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -166,11 +170,13 @@ internal fun GalleryCatalogScreen(
                     } else {
                         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             items(state.items, key = { it.url }) { item ->
-                                Row(Modifier.fillMaxWidth().clickable { open(item.url) }, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    GalleryCover(vm.repository, item.cover, item.title, Modifier.width(82.dp).height(123.dp).clip(MaterialTheme.shapes.small))
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(item.title, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                                        Text(item.category, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                ElevatedCard(onClick = { open(item.url) }, modifier = Modifier.fillMaxWidth()) {
+                                    Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        GalleryCover(vm.repository, item.cover, item.title, Modifier.width(82.dp).height(123.dp).clip(MaterialTheme.shapes.small))
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                            Text(item.category, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                        }
                                     }
                                 }
                             }
@@ -236,7 +242,7 @@ private fun GalleryFilterDialog(current: GalleryFilters, dismiss: () -> Unit, ap
     AlertDialog(
         onDismissRequest = dismiss, title = { Text("Filter galleries") },
         text = {
-            Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Categories", style = MaterialTheme.typography.titleSmall)
                 GalleryCatalog.categories.forEach { category ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

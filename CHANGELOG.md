@@ -1,3 +1,11 @@
+## 3.0.13 — Unified Material 3 Expressive gallery theme
+
+- Remove the gallery-specific orange/gray theme and reuse AetherPort's green Material 3 color tokens on every native E-Hentai screen.
+- Bring gallery catalog grid/list into the same expressive card layout as the rest of the application; align the catalog, library and gallery-detail top bars.
+- Use shared surface colors for gallery navigation, embedded browser controls and image-reader chrome, with correct foreground contrast in light and dark mode.
+- Remove the redundant nested scroll container in gallery filters for smoother interactions.
+- Keep E-Hentai website content under the website's control; the in-app chrome uses the app theme.
+
 # Changelog
 
 ## 3.0.12 — Kotlin compilation fix

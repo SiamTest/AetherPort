@@ -27,12 +27,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.ui.platform.LocalView
-import androidx.activity.ComponentActivity
-import androidx.core.view.WindowCompat
 import androidx.compose.material3.ScaffoldDefaults
 import com.forgeport.android.gallery.GalleryCatalogScreen
-import com.forgeport.android.ui.theme.GalleryColorScheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -152,21 +148,6 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
     val galleryRoute = currentRoute.startsWith("gallery/") || currentRoute.startsWith("ehentai/web/")
     val nativeGalleryRoute = currentRoute in setOf("ehentai", "gallery-library", "gallery-downloads") || currentRoute.startsWith("gallery/")
     val galleryUiRoute = nativeGalleryRoute || readerRoute || currentRoute.startsWith("ehentai/web/")
-    val view = LocalView.current
-    DisposableEffect(galleryUiRoute, view) {
-        val window = (view.context as? ComponentActivity)?.window
-        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
-        val statusAppearance = controller?.isAppearanceLightStatusBars
-        val navigationAppearance = controller?.isAppearanceLightNavigationBars
-        if (galleryUiRoute) {
-            controller?.isAppearanceLightStatusBars = false
-            controller?.isAppearanceLightNavigationBars = false
-        }
-        onDispose {
-            if (statusAppearance != null) controller?.isAppearanceLightStatusBars = statusAppearance
-            if (navigationAppearance != null) controller?.isAppearanceLightNavigationBars = navigationAppearance
-        }
-    }
     val selectedSection = if (galleryUiRoute) "ehentai" else currentRoute
     val title = when {
         currentRoute.startsWith("ehentai/web/") -> "Account & access"
@@ -214,7 +195,8 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
         }
     }
 
-    MaterialTheme(colorScheme = if (galleryUiRoute) GalleryColorScheme else MaterialTheme.colorScheme) {
+    // Native gallery, browser controls and publishing screens share AetherPortTheme.
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme) {
         if (settings) ProjectFolderSettings(vm) { settings = false }
         ModalNavigationDrawer(
             drawerState = drawerState,

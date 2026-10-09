@@ -60,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -180,7 +179,7 @@ internal fun GalleryReaderScreen(url: String, startPage: Int, vm: GalleryViewMod
         }) { Text(if (autoScroll) "Apply" else "Start") } },
         dismissButton = { TextButton(onClick = { autoScrollDialog = false }) { Text("Cancel") } },
     )
-    Column(Modifier.fillMaxSize().background(Color.Black)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         AnimatedVisibility(controls, enter = expandVertically(ExpressiveMotion.spatial()), exit = shrinkVertically(ExpressiveMotion.spatial())) {
             Surface {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -256,8 +255,8 @@ private fun ReaderPage(
     when (image) {
         GalleryImageState.Loading -> Box(frame, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         is GalleryImageState.Failed -> Column(frame.padding(24.dp), verticalArrangement = Arrangement.Center) {
-            Text("Page ${index + 1}", color = Color.White)
-            Text(image.message, color = Color.White)
+            Text("Page ${index + 1}", color = MaterialTheme.colorScheme.onBackground)
+            Text(image.message, color = MaterialTheme.colorScheme.onBackground)
             TextButton(onClick = { retry++ }) { Text("Retry page") }
             TextButton(onClick = toggle) { Text("Show / hide controls") }
         }
