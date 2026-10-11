@@ -1,12 +1,5 @@
 # Changelog
 
-## 3.0.16 — Windows release version alignment
-
-- Bumped the Windows application version to 3.0.16, including window title and sidebar label.
-- Updated Windows installer version, default setup filename, and EXE File/Product Version metadata.
-- GitHub Actions now obtains the version from the application and uses it consistently for release artifacts, installer and release notes.
-- Added version consistency tests so a future version increment cannot leave the Windows installer behind.
-
 ## 3.0.15 — Windows desktop port
 
 - Introduced the Windows AetherPort desktop client, using the same dark surfaces and mint-green color palette as the Android application.

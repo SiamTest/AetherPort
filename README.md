@@ -1,6 +1,6 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.16** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.15** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
@@ -29,8 +29,7 @@ py -3.12 -m venv .venv
 python -m pip install -r requirements-build.txt
 python -m pytest -q tests
 python main.py
-python tools/generate_version_info.py .build/windows-version-info.txt
-pyinstaller --noconfirm --clean --onedir --windowed --name AetherPort --version-file .build/windows-version-info.txt --icon assets/aetherport.ico --add-data "assets;assets" --collect-submodules google_auth_oauthlib --collect-submodules google.oauth2 main.py
+pyinstaller --noconfirm --clean --onedir --windowed --name AetherPort --icon assets/aetherport.ico --add-data "assets;assets" --collect-submodules google_auth_oauthlib --collect-submodules google.oauth2 main.py
 ```
 
 For a Windows `.exe` installer, install **Inno Setup 6** and compile `installer/AetherPort.iss` after PyInstaller. The installer creates a Start menu shortcut and has an optional desktop shortcut. Installer/uninstaller leave `%LOCALAPPDATA%\AetherPort` data intact unless you remove it separately.
@@ -39,7 +38,7 @@ For a Windows `.exe` installer, install **Inno Setup 6** and compile `installer/
 
 Copy this **Windows project** to its own Windows branch/repository (or incorporate its files into the root of your AetherPort repository); `.github/workflows/windows-release.yml` runs on every push to `main` and on manual dispatch. It runs unit tests, builds `AetherPort.exe`, the portable ZIP and Inno Setup EXE, then uploads them as Actions artifacts and to a separate `windows-stable` GitHub Release. Android releases are untouched.
 
-Default update source is `SiamTest/AetherPort` (editable from Updates). To use another repository, set the update source within the app. For updates to work, the target repository must run the Windows release workflow and publish a `windows-stable` release. Use GitHub's release page to obtain compiled executables after Actions succeeds; this source ZIP **is not itself a Windows EXE**. The app, installer and GitHub Actions asset names are tied to the same version (`aetherport/core.py`).
+Default update source is `SiamTest/AetherPort` (editable from Updates). To use another repository, set the update source within the app. For updates to work, the target repository must run the Windows release workflow and publish a `windows-stable` release. Use GitHub's release page to obtain compiled executables after Actions succeeds; this source ZIP **is not itself a Windows EXE**.
 
 ## Security and limitations
 

@@ -7,7 +7,6 @@ on:
       - 'assets/**'
       - 'installer/**'
       - 'tests/**'
-      - 'tools/**'
       - 'main.py'
       - 'requirements*.txt'
       - '.github/workflows/windows-release.yml'
@@ -33,23 +32,15 @@ jobs:
         run: |
           python -m compileall -q aetherport tests main.py
           python -m pytest -q tests
-      - name: Read application version
-        shell: pwsh
-        run: |
-          $version = python -c "from aetherport.core import VERSION; print(VERSION)"
-          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid app version: $version" }
-          "APP_VERSION=$version" >> $env:GITHUB_ENV
       - name: Build portable Windows app
         shell: pwsh
         run: |
-          python tools/generate_version_info.py .build/windows-version-info.txt
-          if ($LASTEXITCODE -ne 0) { throw "Version resource generation failed" }
-          pyinstaller --noconfirm --clean --onedir --windowed --name AetherPort --version-file .build/windows-version-info.txt --icon assets/aetherport.ico --add-data "assets;assets" --collect-submodules google_auth_oauthlib --collect-submodules google.oauth2 main.py
+          pyinstaller --noconfirm --clean --onedir --windowed --name AetherPort --icon assets/aetherport.ico --add-data "assets;assets" --collect-submodules google_auth_oauthlib --collect-submodules google.oauth2 main.py
           if (!(Test-Path "dist/AetherPort/AetherPort.exe")) { throw "Missing AetherPort executable" }
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/AetherPort/* -DestinationPath "dist/AetherPort-Windows-Portable-v$($env:APP_VERSION).zip" -CompressionLevel Optimal
+          Compress-Archive -Path dist/AetherPort/* -DestinationPath "dist/AetherPort-Windows-Portable-v3.0.15.zip" -CompressionLevel Optimal
       - name: Build Windows installer
         shell: pwsh
         run: |
@@ -58,21 +49,21 @@ jobs:
             choco install innosetup -y --no-progress
           }
           if (!(Test-Path $iscc)) { throw "Inno Setup not found" }
-          & $iscc "/DMyAppVersion=$env:APP_VERSION" installer/AetherPort.iss
+          & $iscc installer/AetherPort.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
       - name: Produce hashes
         shell: pwsh
         run: |
-          $assets = @("dist/AetherPort-Windows-Setup-v$($env:APP_VERSION).exe", "dist/AetherPort-Windows-Portable-v$($env:APP_VERSION).zip")
+          $assets = @("dist/AetherPort-Windows-Setup-v3.0.15.exe", "dist/AetherPort-Windows-Portable-v3.0.15.zip")
           foreach ($p in $assets) { if (!(Test-Path $p)) { throw "Missing $p" } }
           $assets | ForEach-Object { $hash = (Get-FileHash $_ -Algorithm SHA256).Hash; "$hash  $(Split-Path $_ -Leaf)" } | Set-Content dist/SHA256SUMS.txt
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AetherPort-Windows-${{ env.APP_VERSION }}
+          name: AetherPort-Windows-3.0.15
           path: |
-            dist/AetherPort-Windows-Setup-v${{ env.APP_VERSION }}.exe
-            dist/AetherPort-Windows-Portable-v${{ env.APP_VERSION }}.zip
+            dist/AetherPort-Windows-Setup-v3.0.15.exe
+            dist/AetherPort-Windows-Portable-v3.0.15.zip
             dist/SHA256SUMS.txt
       - name: Publish rolling Windows stable release
         if: github.ref == 'refs/heads/main'
@@ -84,10 +75,8 @@ jobs:
           $repo = '${{ github.repository }}'
           gh release view windows-stable --repo $repo *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create windows-stable --repo $repo --title "AetherPort Windows Stable" --notes "Windows build $env:APP_VERSION. Native Windows installer and portable ZIP." --latest=false
+            gh release create windows-stable --repo $repo --title "AetherPort Windows Stable" --notes "Windows build 3.0.15. Native Windows installer and portable ZIP." --latest=false
             if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
           }
-          gh release edit windows-stable --repo $repo --notes "Windows build $env:APP_VERSION. Native Windows installer and portable ZIP."
-          if ($LASTEXITCODE -ne 0) { throw "Release notes update failed" }
-          gh release upload windows-stable "dist/AetherPort-Windows-Setup-v$($env:APP_VERSION).exe" "dist/AetherPort-Windows-Portable-v$($env:APP_VERSION).zip" "dist/SHA256SUMS.txt" --repo $repo --clobber
+          gh release upload windows-stable "dist/AetherPort-Windows-Setup-v3.0.15.exe" "dist/AetherPort-Windows-Portable-v3.0.15.zip" "dist/SHA256SUMS.txt" --repo $repo --clobber
           if ($LASTEXITCODE -ne 0) { throw "Release upload failed" }
