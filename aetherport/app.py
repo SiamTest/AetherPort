@@ -278,15 +278,19 @@ class AetherPortWindow(tk.Tk):
         Button(bottom,'Close',dialog.destroy).pack(side='right')
         Button(bottom,'ZIP folder Settings',lambda:(dialog.destroy(),self.show_page('Settings'))).pack(side='right',padx=9)
 
-    def _repository_dialog(self,hf:bool,cb):
+    def _repository_dialog(self,hf:bool,cb,branch=None):
         repos=self.vault.repositories(hf)
         dialog=Modal(self,'Choose Hugging Face Space' if hf else 'Choose GitHub repository',width=570,height=460)
-        label(dialog.body,'Select a saved repository.',11,color=MUTED,bg=SURFACE).pack(anchor='w',pady=(0,12))
+        detail=f'Select a repository to publish the selected project to {branch}.' if branch else 'Select a saved repository.'
+        label(dialog.body,detail,11,color=MUTED,bg=SURFACE,wrap=500).pack(anchor='w',pady=(0,12))
         scroll=ScrollBox(dialog.body)
         scroll.pack(fill='both',expand=True)
         if not repos: label(scroll.inner,'No saved repositories. Add one in Variables.',color=MUTED).pack(pady=12)
+        def select(repo):
+            dialog.destroy()
+            cb(repo)
         for repo in repos:
-            Button(scroll.inner,repo,lambda r=repo:(cb(r),dialog.destroy())).pack(fill='x',pady=5)
+            Button(scroll.inner,repo,lambda r=repo:select(r)).pack(fill='x',pady=5)
         buttons=tk.Frame(dialog.body,bg=SURFACE)
         buttons.pack(fill='x',pady=(14,0))
         Button(buttons,'Cancel',dialog.destroy).pack(side='right')
@@ -296,11 +300,8 @@ class AetherPortWindow(tk.Tk):
     def _publish_ui(self,hf=False):
         box=self.card()
         self._archive_field(box)
-        repository=tk.StringVar(value='')
         branch=tk.StringVar(value='main')
         commit=tk.StringVar(value='Small bug fixes')
-        Button(box,'Choose saved repository',lambda:self._repository_dialog(hf,repository.set)).pack(anchor='w',pady=(14,0))
-        field_line(box,'Repository (owner/repository)',repository)
         if hf:
             token_names=self.vault.hf_tokens()
             token=tk.StringVar(value=token_names[0] if token_names else '')
@@ -310,13 +311,13 @@ class AetherPortWindow(tk.Tk):
         else: token=None
         field_line(box,'Branch',branch)
         field_line(box,'Commit message',commit)
-        def publish():
+        def publish(repository):
             current=self.active_zip
             if not current or not current.is_file():
                 messagebox.showerror('Select ZIP','Choose an existing ZIP first.',parent=self)
                 return
             try:
-                repo=normalize_repo(repository.get(),'hf' if hf else 'github')
+                repo=normalize_repo(repository,'hf' if hf else 'github')
                 b=validate_branch(branch.get())
                 vals=self.vault.all()
                 secret=vals[token.get()] if hf else self.vault.github_token(repo)
@@ -328,7 +329,17 @@ class AetherPortWindow(tk.Tk):
                 parent=self):
                 return
             self._task(lambda:publish_zip(current,'hf' if hf else 'github',repo,secret,b,commit.get(),self._progress))
-        Button(box,'Publish to Hugging Face' if hf else 'Publish to GitHub',publish,primary=True).pack(fill='x',pady=(14,0))
+        def choose_repository():
+            if self.busy: return
+            if not self.active_zip or not self.active_zip.is_file():
+                messagebox.showerror('Select ZIP','Choose an existing ZIP first.',parent=self)
+                return
+            try: b=validate_branch(branch.get())
+            except ValueError as exc:
+                messagebox.showerror('Publish setup',safe_error(exc),parent=self)
+                return
+            self._repository_dialog(hf,publish,branch=b)
+        Button(box,'Publish to Hugging Face' if hf else 'Publish to GitHub',choose_repository,primary=True).pack(fill='x',pady=(14,0))
 
     def _github(self):
         self.section('Publish to GitHub','Publish the selected ZIP to the repository root. Commits use the matching GitHub token owner’s no-reply identity.')

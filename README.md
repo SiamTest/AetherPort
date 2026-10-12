@@ -1,10 +1,10 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.15** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.16** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
-- GitHub publishing: choose a ZIP, automatically unwrap one unnecessary outer folder, replace the repository contents, commit as the GitHub token owner, and push to an existing branch.
+- GitHub publishing: choose a ZIP, click Publish to choose a saved repository, automatically unwrap one unnecessary outer folder, replace the repository contents, commit as the GitHub token owner, and push to an existing branch.
 - Hugging Face Spaces: publish a ZIP or download a Space into a ZIP.
 - ZIP chooser: newest first, centered scrollable picker, permanent deletion with confirmation. Configurable source folder (defaults to Downloads).
 - Variables: multiple GitHub/HF tokens and saved repositories; encrypted locally using **Windows DPAPI** under the current user account.

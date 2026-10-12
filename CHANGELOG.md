@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.16 — Repository chooser on publish
+
+- GitHub and Hugging Face Publish buttons now open the saved repository chooser before confirmation and upload, matching the Android flow.
+- The chooser shows the selected branch and closes before the publish confirmation opens.
+
 ## 3.0.15 — Windows desktop port
 
 - Introduced the Windows AetherPort desktop client, using the same dark surfaces and mint-green color palette as the Android application.
