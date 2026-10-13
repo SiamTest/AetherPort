@@ -1,7 +1,7 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.15** and **Windows 3.0.16**.
-Android is restored from the last Android commit, `93163d4`, before the Windows-only upload.
+This combined source project contains **Android 3.0.16** and **Windows 3.0.16**.
+Android includes faster gallery thumbnail loading; Windows retains its saved repository chooser.
 
 - Android source remains at the repository root (`app/`, Gradle files and `tools/`).
 - Windows source is in `windows/`. Its Publish button opens the saved repository chooser for GitHub and Hugging Face.
@@ -15,7 +15,8 @@ The combined upload restores both workflows. Later Windows-only changes run the 
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.15
+**Version:** 3.0.16
+
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
 **Target:** Android 16 (API 36)
@@ -24,7 +25,8 @@ AetherPort is a native Android workspace for publishing projects, connecting acc
 
 AetherPort does not require a hosted AetherPort server. Project staging, ZIP work, variables, Git operations, and Google OAuth token generation run on the Android device. Internet access is needed for GitHub, Hugging Face, Google, app update checks, and website browsing.
 
-- Jetpack Compose **Material 3 Expressive principles** across the interface, implemented with the existing stable Material 3 APIs.
+- Jetpack Compose **Material 3 Expressive principles** across the interface, implemented with the existing stable Material 3 APIs.- E-Hentai starts loading catalogue covers immediately without waiting for the offline library scan. It warms up to 12 nearby covers in batches of three, reuses cached images, skips duplicate URLs, retries interrupted thumbnail downloads once, and cancels speculative loading when you leave or the service reports its image limit. Full reader-page prefetch starts when reading, keeping the catalogue and details screens focused on small covers.
+
 - The navigation drawer has exactly six sections: **GitHub, Hugging Face, Google, E-Hentai, Variables, Updates**.
 - **GitHub** opens its Publish form directly. **Hugging Face** contains **Publish / Download** tabs with saved form/scroll state. The Projects screen and persistent staged-project selection have been removed; ZIPs are extracted temporarily only for publishing.
 - **Google** contains authorization and token exports. **E-Hentai** contains browsing, reading, library/history and downloads. **Variables** and **Updates** remain their own sections.

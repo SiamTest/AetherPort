@@ -109,7 +109,6 @@ internal class GalleryRepository private constructor(private val context: Contex
     }
 
     suspend fun browse(mode: GalleryCatalogMode, query: String, filters: GalleryFilters, cursor: String? = null): GalleryCatalogPage = withContext(Dispatchers.IO) {
-        initialize()
         val url = GalleryCatalog.request(mode, query, filters, cursor)
         val page = GalleryCatalog.parse(url, text(url))
         if (mode != GalleryCatalogMode.POPULAR) return@withContext page
@@ -159,15 +158,17 @@ internal class GalleryRepository private constructor(private val context: Contex
 
     suspend fun thumbnailFile(url: String): File = withContext(Dispatchers.IO) {
         require(GalleryParser.isImageUrl(url)) { "The cover is unavailable." }
-        initialize()
         val hash = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
         val target = File(cache, "covers/$hash.img")
         if (validImage(target)) { target.setLastModified(System.currentTimeMillis()); return@withContext target }
-        coverSlots.withPermit {
-            imageLocks.getOrPut("cover_$hash") { Mutex() }.withLock {
-                if (!validImage(target)) { writeImage(url, target, EhentaiNavigation.HOME); trimCache(target) }
-                target
+        imageLocks.getOrPut("cover_$hash") { Mutex() }.withLock {
+            if (!validImage(target)) {
+                coverSlots.withPermit {
+                    retryGalleryThumbnail { writeImage(url, target, EhentaiNavigation.HOME) }
+                    trimCache(target)
+                }
             }
+            target
         }
     }
 

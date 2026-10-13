@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -78,17 +79,13 @@ internal fun GalleryCatalogScreen(
             vm.catalog.canLoadMore(lastVisible)
         }.distinctUntilChanged().collect { load -> if (load) vm.browse(more = true) }
     }
-    LaunchedEffect(state.items) {
-        // Warm the first screen, rather than fetching an entire catalogue of indexes.
-        for (item in state.items.take(6)) {
-            try {
-                vm.repository.loadGallery(item.url)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                break
+    LaunchedEffect(state.items, grid, gridState, listState) {
+        snapshotFlow {
+            (if (grid) gridState.firstVisibleItemIndex else listState.firstVisibleItemIndex) / 6
+        }.distinctUntilChanged().collectLatest { screen ->
+            prefetchGalleryCovers(state.items.drop(screen * 6).map { it.cover }) {
+                vm.repository.thumbnailFile(it)
             }
-            kotlinx.coroutines.delay(350)
         }
     }
     val focus = LocalFocusManager.current

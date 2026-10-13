@@ -1,3 +1,13 @@
+## 3.0.16 — Faster gallery thumbnails
+
+- Start catalogue and thumbnail requests without waiting for saved-library scanning.
+- Prefetch up to 12 nearby covers in batches of three on entry and while scrolling, using the existing validated disk cache instead of opening full gallery indexes.
+- Share one download per cover URL without allowing duplicate requests to occupy network slots; retry an interrupted thumbnail once.
+- Cancel speculative downloads on navigation, continue past individual broken covers, and stop background batches on service image limits.
+- Keep full reader-page prefetch in the reader so catalogue and details covers get network capacity first.
+- Preserve both platform projects and workflows; Windows remains at 3.0.16.
+- Advance Android to 3.0.16 (versionCode 3000032).
+
 ## 3.0.15 — Delete original ZIPs from the project chooser
 
 - Add a delete button to each ZIP entry in the GitHub/Hugging Face centered picker, with a separate confirmation dialog.

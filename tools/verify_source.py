@@ -247,8 +247,15 @@ for marker in ['refresh && sameSelection', 'refreshing = false', 'if (more) prev
 
 # Preload stays bounded and uses the same validated image/cache pipeline as reading.
 assert 'browse()' in catalog_vm.split('init {', 1)[1]
-assert 'state.items.take(6)' in catalog_ui
-assert 'repository.loadGallery(item.url)' in catalog_ui
+assert 'prefetchGalleryCovers(state.items.drop(screen * 6).map { it.cover })' in catalog_ui
+assert 'repository.thumbnailFile(it)' in catalog_ui
+assert 'repository.loadGallery(item.url)' not in catalog_ui
+thumbnail_prefetch = (gallery_root / 'GalleryCoverPrefetch.kt').read_text()
+assert '.distinct().take(12).chunked(3)' in thumbnail_prefetch
+assert 'retryGalleryThumbnail { writeImage(url, target, EhentaiNavigation.HOME) }' in repository
+thumbnail_loader = repository.split('suspend fun thumbnailFile(', 1)[1].split('private suspend fun store', 1)[0]
+assert 'initialize()' not in thumbnail_loader
+assert thumbnail_loader.index('withLock') < thumbnail_loader.index('coverSlots.withPermit')
 assert 'while (links.size < parsed.total)' not in repository
 assert 'parsed.links[it].orEmpty()' in repository
 assert 'pageLink(gallery, index)' in repository

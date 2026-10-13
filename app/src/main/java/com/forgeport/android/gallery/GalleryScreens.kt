@@ -96,9 +96,6 @@ internal fun GalleryDetailsScreen(
     val downloads by vm.repository.downloads.collectAsStateWithLifecycle()
     val gallery = galleries.firstOrNull { it.url == url }
     LaunchedEffect(url) { vm.open(url) }
-    LaunchedEffect(gallery?.key) {
-        gallery?.let { vm.repository.prefetch(it, it.lastRead) }
-    }
     var menu by remember { mutableStateOf(false) }
     var expanded by remember(url) { mutableStateOf(true) }
     var confirmDelete by remember { mutableStateOf(false) }
