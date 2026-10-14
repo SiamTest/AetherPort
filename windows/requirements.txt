@@ -1,4 +1,0 @@
-requests>=2.32,<3
-cryptography>=43,<48
-google-auth-oauthlib>=1.2,<2
-google-auth>=2.30,<3
