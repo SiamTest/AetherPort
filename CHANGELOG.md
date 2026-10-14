@@ -1,3 +1,12 @@
+## 3.0.17 — One commit per changed file
+
+- GitHub and Hugging Face ZIP publishing creates one commit for each added, modified or deleted file, then pushes the complete batch once.
+- Skip unchanged files. Each commit uses the entered message followed by the filename and retains the verified token owner's author and committer identity.
+- Process deletions first so file/directory replacements remain separate changes. A renamed file produces a deletion commit and an addition commit.
+- Report the number of commits and stop before pushing if the batch cannot be completed. Android reports rejected pushes as failures.
+- Add 50-file and file/directory replacement tests for Android and Windows, including unusual filenames and unchanged-file checks.
+- Advance Android to 3.0.17 (versionCode 3000033) and Windows to 3.0.17; preserve the thumbnail improvements and both build workflows.
+
 ## 3.0.16 — Faster gallery thumbnails
 
 - Start catalogue and thumbnail requests without waiting for saved-library scanning.

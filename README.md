@@ -1,7 +1,7 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.16** and **Windows 3.0.16**.
-Android includes faster gallery thumbnail loading; Windows retains its saved repository chooser.
+This combined source project contains **Android 3.0.17** and **Windows 3.0.17**.
+Both platforms publish ZIPs with one commit per changed file. Android retains faster gallery thumbnails; Windows retains its saved repository chooser.
 
 - Android source remains at the repository root (`app/`, Gradle files and `tools/`).
 - Windows source is in `windows/`. Its Publish button opens the saved repository chooser for GitHub and Hugging Face.
@@ -15,7 +15,7 @@ The combined upload restores both workflows. Later Windows-only changes run the 
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.16
+**Version:** 3.0.17
 
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
@@ -36,7 +36,7 @@ AetherPort does not require a hosted AetherPort server. Project staging, ZIP wor
 - Variables are encrypted with Android Keystore-backed AES-GCM.
 - **Variables → Repositories** saves, edits and removes GitHub repositories and Hugging Face Spaces as encrypted `GITHUB_REPOSITORY_<LABEL>` / `HF_REPOSITORY_<LABEL>` variables. Generic repository variables with those prefixes also work. Publishing forms have no repository text field: **Publish** opens the saved repository chooser, and selecting a target starts publishing. Hugging Face downloads use the same chooser.
 - GitHub publishing automatically resolves `GITHUB_TOKEN_<OWNER>` from the chosen repository owner.
-- GitHub and Hugging Face repository operations use JGit locally.
+- GitHub and Hugging Face repository operations use JGit locally. Each added, modified or deleted file creates its own commit, with the filename appended to your message. Unchanged files create no commits. A rename creates separate deletion and addition commits. The complete batch is pushed once; intermediate commits may not build independently.
 - Commit message defaults/falls back to **Small bug fixes**. New commits use the account behind the selected token for both author and committer, even in organization/shared repositories. GitHub uses its account-linked no-reply address; Hugging Face uses the verified account email. Identity lookup errors stop publishing instead of crediting the app. Earlier commits are unchanged.
 - Reader **Auto-scroll** offers a saved 1–60 second interval, immediate pause, page turns for RTL/LTR and gradual screen scrolling for vertical reading. It waits for loaded images and pauses during zoom, settings or background use.
 - Gallery downloads and resumes show a centered **1–100% slider** and exact count before starting. The first selected pages are downloaded in reading order (rounded up); existing pages are skipped and kept, and the selection persists for resume.

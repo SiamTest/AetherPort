@@ -8,8 +8,9 @@ from aetherport import core
 
 
 def git(args, cwd, env=None):
-    return subprocess.run(['git', *args], cwd=str(cwd), env=env, check=True,
-                          capture_output=True, text=True).stdout.strip()
+    output = subprocess.run(['git', *args], cwd=str(cwd), env=env, check=True,
+                            capture_output=True, text=True, encoding='utf-8').stdout
+    return output if '-z' in args else output.strip()
 
 
 @pytest.mark.skipif(not __import__('shutil').which('git'),reason='Git not installed')
@@ -40,7 +41,7 @@ def test_publish_replaces_repository_tree_without_force_push(monkeypatch,tmp_pat
     monkeypatch.setattr(core,'_git_environment',custom_git_env)
     monkeypatch.setattr(core,'_identity',lambda service,token:('ExampleOwner','123+ExampleOwner@users.noreply.github.com'))
     result=core.publish_zip(archive,'github','ExampleOwner/ExampleProject','dummy-token','main','New release')
-    assert 'Published commit' in result
+    assert 'Published 3 file commits' in result
     output=git(['--git-dir',str(bare),'ls-tree','-r','--name-only','main'],tmp_path)
     assert 'README.md' in output
     assert '.github/workflows/build.yml' in output
@@ -48,3 +49,106 @@ def test_publish_replaces_repository_tree_without_force_push(monkeypatch,tmp_pat
     assert 'wrapper/' not in output
     second=core.publish_zip(archive,'github','ExampleOwner/ExampleProject','dummy-token','main','New release')
     assert 'No changes found' in second
+
+
+@pytest.fixture
+def local_publish(monkeypatch, tmp_path):
+    def setup(seed_files, service):
+        bare = tmp_path/'hosting'/'ExampleOwner'/'ExampleProject.git'
+        bare.parent.mkdir(parents=True)
+        git(['init', '--bare', '--initial-branch=main', str(bare)], tmp_path)
+        git(['--git-dir', str(bare), 'config', 'core.longpaths', 'true'], tmp_path)
+        seed = tmp_path/'seed'
+        seed.mkdir()
+        git(['init', '--initial-branch=main'], seed)
+        git(['config', 'user.name', 'Initial author'], seed)
+        git(['config', 'user.email', 'initial@example.com'], seed)
+        for path, content in seed_files.items():
+            file = seed/path
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(content, encoding='utf-8')
+        git(['add', '-A'], seed)
+        git(['commit', '-m', 'Initial'], seed)
+        initial = git(['rev-parse', 'HEAD'], seed)
+        git(['remote', 'add', 'origin', str(bare)], seed)
+        git(['push', 'origin', 'main'], seed)
+        location = (tmp_path/'hosting').resolve().as_posix()
+        prefix = ('file:///' if os.name == 'nt' else 'file://') + location + '/'
+        original_env = core._git_environment
+        def environment(work, token):
+            result = original_env(work, token)
+            source = 'https://x-access-token@github.com/' if service == 'github' else 'https://ExampleOwner@huggingface.co/spaces/'
+            result.update(GIT_CONFIG_COUNT='1', GIT_CONFIG_KEY_0=f'url.{prefix}.insteadOf',
+                          GIT_CONFIG_VALUE_0=source)
+            return result
+        monkeypatch.setattr(core, '_git_environment', environment)
+        monkeypatch.setattr(core, '_identity', lambda service, token: ('Token Owner', '123+owner@users.noreply.github.com'))
+        return bare, initial
+    return setup
+
+
+def write_archive(path, files):
+    with ZipFile(path, 'w') as zipped:
+        for name, content in files.items():
+            zipped.writestr('wrapper/' + name, content)
+
+
+def published_paths(bare, initial, tmp_path):
+    commits = git(['--git-dir', str(bare), 'rev-list', '--reverse', f'{initial}..main'], tmp_path).splitlines()
+    paths = []
+    for commit in commits:
+        changed = git(['--git-dir', str(bare), 'diff-tree', '--no-commit-id', '--name-only',
+                       '--no-renames', '-r', '-z', commit], tmp_path).split('\0')[:-1]
+        assert len(changed) == 1, (commit, changed)
+        identity = git(['--git-dir', str(bare), 'show', '-s', '--format=%an|%ae|%cn|%ce', commit], tmp_path)
+        assert identity == 'Token Owner|123+owner@users.noreply.github.com|Token Owner|123+owner@users.noreply.github.com'
+        subject = git(['--git-dir', str(bare), 'show', '-s', '--format=%s', commit], tmp_path)
+        assert subject == 'Update ZIP: ' + changed[0]
+        paths.extend(changed)
+    return paths
+
+
+@pytest.mark.parametrize('service', ['github', 'hf'])
+def test_fifty_changed_files_create_fifty_single_file_commits(local_publish, tmp_path, service):
+    names = [' leading space.txt', 'bracket[1].txt', 'unicodé.txt', '--option.txt'] + [f'file-{n:02}.txt' for n in range(46)]
+    bare, initial = local_publish({**{name: 'old' for name in names}, 'unchanged.txt': 'same'}, service)
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {**{name: 'new' for name in names}, 'unchanged.txt': 'same'})
+    result = core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert 'Published 50 file commits' in result
+    assert set(published_paths(bare, initial, tmp_path)) == set(names)
+    assert git(['--git-dir', str(bare), 'rev-list', '--count', 'main'], tmp_path) == '51'
+    result = core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert 'No changes found' in result
+    assert git(['--git-dir', str(bare), 'rev-list', '--count', 'main'], tmp_path) == '51'
+
+
+def test_renames_and_file_directory_replacements_remain_single_path_commits(local_publish, tmp_path):
+    before = {'file-to-dir': 'old', 'dir-to-file/child.txt': 'old', 'old-name.txt': 'same'}
+    after = {'file-to-dir/child.txt': 'new', 'dir-to-file': 'new', 'new-name.txt': 'same'}
+    bare, initial = local_publish(before, 'github')
+    archive = tmp_path/'project.zip'
+    write_archive(archive, after)
+    result = core.publish_zip(archive, 'github', 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert 'Published 6 file commits' in result
+    assert published_paths(bare, initial, tmp_path) == sorted(before) + sorted(after)
+    assert set(git(['--git-dir', str(bare), 'ls-tree', '-r', '--name-only', '-z', 'main'], tmp_path).split('\0')[:-1]) == set(after)
+
+
+def test_commit_failure_does_not_push_a_partial_batch(local_publish, monkeypatch, tmp_path):
+    bare, initial = local_publish({'a.txt': 'old', 'b.txt': 'old'}, 'github')
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {'a.txt': 'new', 'b.txt': 'new'})
+    original_run = core._run_git
+    attempts = 0
+    def fail_second_commit(args, *rest):
+        nonlocal attempts
+        if 'commit' in args:
+            attempts += 1
+            if attempts == 2: raise RuntimeError('Simulated commit failure')
+        return original_run(args, *rest)
+    monkeypatch.setattr(core, '_run_git', fail_second_commit)
+    with pytest.raises(RuntimeError, match='Simulated commit failure'):
+        core.publish_zip(archive, 'github', 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert git(['--git-dir', str(bare), 'rev-parse', 'main'], tmp_path) == initial
+    assert archive.is_file()

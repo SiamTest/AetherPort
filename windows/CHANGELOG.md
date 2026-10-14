@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.17 — One commit per changed file
+
+- ZIP publishing to GitHub and Hugging Face now creates one commit per added, modified or deleted file, with the filename in the message, and pushes the batch once.
+- Skip unchanged files and stop before pushing if any commit fails. Keep token-owner attribution and non-force pushes.
+- Support literal filenames with spaces, brackets and Unicode; process deletions first for file/directory replacements.
+
 ## 3.0.16 — Repository chooser on publish
 
 - GitHub and Hugging Face Publish buttons now open the saved repository chooser before confirmation and upload, matching the Android flow.

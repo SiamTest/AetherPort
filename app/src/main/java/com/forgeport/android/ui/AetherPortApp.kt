@@ -513,7 +513,7 @@ private fun GitHubScreen(vm: AetherPortViewModel, manageRepositories: () -> Unit
             chooseRepository = false; vm.publishGitHub(publishArchive, repo, branch, commit)
         })
     ScreenColumn(vm) {
-        SectionHeader("Publish to GitHub", "The repository-owner token is matched from Variables. Commits are credited to that token's account with its GitHub no-reply email.")
+        SectionHeader("Publish to GitHub", "One commit per changed file. The repository-owner token is matched from Variables. Commits are credited to that token's account with its GitHub no-reply email.")
         ProjectSourcePicker(vm, project, selectProject)
         OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(commit, { commit = it }, label = { Text("Commit message") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -538,7 +538,7 @@ private fun HuggingFaceScreen(vm: AetherPortViewModel, manageRepositories: () ->
             chooseRepository = false; vm.publishHuggingFace(publishArchive, repo, token, branch, commit)
         })
     ScreenColumn(vm) {
-        SectionHeader("Publish to Hugging Face", "Publish the selected ZIP to a Space. Commits use the selected token's account and verified account email.")
+        SectionHeader("Publish to Hugging Face", "Publish the selected ZIP to a Space with one commit per changed file. Commits use the selected token's account and verified account email.")
         ProjectSourcePicker(vm, project, selectProject)
         TokenPicker(vm.hfTokenNames, token) { token = it }
         OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())

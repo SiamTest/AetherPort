@@ -301,8 +301,12 @@ assert 'Theme.AetherPort' in manifest
 print("source verification: OK")
 
 # Account identity is shared by both publishers; never silently fall back to the app.
-assert '.setAuthor(identity.name, identity.email)' in repo
-assert '.setCommitter(identity.name, identity.email)' in repo
+file_commits = (root / 'app/src/main/java/com/forgeport/android/repo/FileCommits.kt').read_text()
+assert 'commitChangedFiles(git, commitMessage, identity)' in repo
+assert '.setAuthor(identity.name, identity.email)' in file_commits
+assert '.setCommitter(identity.name, identity.email)' in file_commits
+assert 'git.reset().setMode(ResetType.MIXED)' in file_commits
+assert 'git.rm().setCached(true).addFilepattern(path)' in file_commits
 assert '.setAuthor("AetherPort"' not in repo and '.setAuthor("ForgePort"' not in repo
 for marker in ['identity = githubIdentity(tokenPair.second)', 'identity = huggingFaceIdentity(token)', 'https://api.github.com/user', 'https://huggingface.co/api/whoami-v2', 'followRedirects(false)', 'followSslRedirects(false)']:
     assert marker in repo, marker

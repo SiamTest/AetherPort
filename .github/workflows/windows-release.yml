@@ -39,7 +39,7 @@ jobs:
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/AetherPort/* -DestinationPath "dist/AetherPort-Windows-Portable-v3.0.16.zip" -CompressionLevel Optimal
+          Compress-Archive -Path dist/AetherPort/* -DestinationPath "dist/AetherPort-Windows-Portable-v3.0.17.zip" -CompressionLevel Optimal
       - name: Build Windows installer
         shell: pwsh
         run: |
@@ -53,16 +53,16 @@ jobs:
       - name: Produce hashes
         shell: pwsh
         run: |
-          $assets = @("dist/AetherPort-Windows-Setup-v3.0.16.exe", "dist/AetherPort-Windows-Portable-v3.0.16.zip")
+          $assets = @("dist/AetherPort-Windows-Setup-v3.0.17.exe", "dist/AetherPort-Windows-Portable-v3.0.17.zip")
           foreach ($p in $assets) { if (!(Test-Path $p)) { throw "Missing $p" } }
           $assets | ForEach-Object { $hash = (Get-FileHash $_ -Algorithm SHA256).Hash; "$hash  $(Split-Path $_ -Leaf)" } | Set-Content dist/SHA256SUMS.txt
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AetherPort-Windows-3.0.16
+          name: AetherPort-Windows-3.0.17
           path: |
-            windows/dist/AetherPort-Windows-Setup-v3.0.16.exe
-            windows/dist/AetherPort-Windows-Portable-v3.0.16.zip
+            windows/dist/AetherPort-Windows-Setup-v3.0.17.exe
+            windows/dist/AetherPort-Windows-Portable-v3.0.17.zip
             windows/dist/SHA256SUMS.txt
       - name: Publish rolling Windows stable release
         if: github.ref == 'refs/heads/main'
@@ -74,8 +74,8 @@ jobs:
           $repo = '${{ github.repository }}'
           gh release view windows-stable --repo $repo *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create windows-stable --repo $repo --title "AetherPort Windows Stable" --notes "Windows build 3.0.16. Native Windows installer and portable ZIP." --latest=false
+            gh release create windows-stable --repo $repo --title "AetherPort Windows Stable" --notes "Windows build 3.0.17. Native Windows installer and portable ZIP." --latest=false
             if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
           }
-          gh release upload windows-stable "dist/AetherPort-Windows-Setup-v3.0.16.exe" "dist/AetherPort-Windows-Portable-v3.0.16.zip" "dist/SHA256SUMS.txt" --repo $repo --clobber
+          gh release upload windows-stable "dist/AetherPort-Windows-Setup-v3.0.17.exe" "dist/AetherPort-Windows-Portable-v3.0.17.zip" "dist/SHA256SUMS.txt" --repo $repo --clobber
           if ($LASTEXITCODE -ne 0) { throw "Release upload failed" }

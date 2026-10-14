@@ -342,7 +342,7 @@ class AetherPortWindow(tk.Tk):
         Button(box,'Publish to Hugging Face' if hf else 'Publish to GitHub',choose_repository,primary=True).pack(fill='x',pady=(14,0))
 
     def _github(self):
-        self.section('Publish to GitHub','Publish the selected ZIP to the repository root. Commits use the matching GitHub token owner’s no-reply identity.')
+        self.section('Publish to GitHub','Publish the selected ZIP with one commit per changed file. Commits use the matching GitHub token owner’s no-reply identity.')
         self._publish_ui()
 
     def _hf(self):
@@ -351,7 +351,7 @@ class AetherPortWindow(tk.Tk):
         for value in ('Publish','Download'):
             Button(bar,value,lambda v=value:self._change_hf_mode(v),primary=self.hf_mode==value).pack(side='left',padx=(0,10))
         self.section('Publish to Hugging Face' if self.hf_mode=='Publish' else 'Download Hugging Face Space',
-                     'Publish the selected ZIP or download a repository snapshot as a ZIP.')
+                     'Publish the selected ZIP with one commit per changed file, or download a repository snapshot as a ZIP.')
         if self.hf_mode=='Publish': self._publish_ui(hf=True)
         else:
             box=self.card()

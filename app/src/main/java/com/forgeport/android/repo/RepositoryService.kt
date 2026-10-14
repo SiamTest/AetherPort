@@ -12,6 +12,7 @@ import org.json.JSONObject
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.transport.RefSpec
+import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -142,23 +143,23 @@ class RepositoryService(
                     copyTree(source, repoDir)
                     git.add().addFilepattern(".").call()
                     git.add().setUpdate(true).addFilepattern(".").call()
-                    val status = git.status().call()
-                    if (status.isClean) {
+                    val commits = commitChangedFiles(git, commitMessage, identity)
+                    if (commits.isEmpty()) {
                         return OperationResult(true, "No changes found. Nothing was pushed.")
                     }
-                    val commit = git.commit()
-                        .setMessage(commitMessage)
-                        .setAuthor(identity.name, identity.email)
-                        .setCommitter(identity.name, identity.email)
-                        .call()
-                    git.push()
+                    check(git.status().call().isClean) { "Some file changes were not committed. Nothing was pushed." }
+                    val updates = git.push()
                         .setCredentialsProvider(credentials)
                         .setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
                         .call()
+                        .flatMap { it.remoteUpdates }
+                    check(updates.isNotEmpty() && updates.all { it.status in setOf(RemoteRefUpdate.Status.OK, RemoteRefUpdate.Status.UP_TO_DATE) }) {
+                        "The push was rejected. Refresh the repository and try again."
+                    }
                     return OperationResult(
                         ok = true,
-                        message = "Published successfully to $branch.",
-                        log = "Commit ${commit.id.name.take(8)} • ${identity.name}",
+                        message = "Published ${commits.size} file commits to $branch.",
+                        log = "Last commit ${commits.last().id.name.take(8)} • ${identity.name}",
                     )
                 }
         } finally {

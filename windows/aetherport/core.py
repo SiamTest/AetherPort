@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.16'
+VERSION = '3.0.17'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -364,14 +364,14 @@ def _run_git(args: list[str], cwd: Path, environment: dict[str,str], progress=No
         raise RuntimeError('Git for Windows was not found. Install Git for Windows and restart AetherPort.')
     # Capture output; strip lines to prevent a remote's exception accidentally showing sensitive URLs.
     process = subprocess.run(['git', '-c', 'credential.helper=', *args], cwd=str(cwd), env=environment,
-                             capture_output=True, text=True, errors='replace', timeout=240, check=False)
+                             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=240, check=False)
     if process.returncode != 0:
         msg = (process.stderr or process.stdout or 'Git operation failed').strip()
         token = environment.get('AETHERPORT_GIT_TOKEN', '')
         if token:
             msg = msg.replace(token, '[REDACTED]')
         raise RuntimeError(msg[-800:])
-    return process.stdout.strip()
+    return process.stdout if '-z' in args else process.stdout.strip()
 
 
 def _identity(service: str, token: str) -> tuple[str,str]:
@@ -449,15 +449,24 @@ def publish_zip(archive: Path, service: str, repo: str, token: str,
             if item.is_dir(): shutil.copytree(item, dest)
             else: shutil.copy2(item, dest)
         _run_git(['add', '-A'], work, env)
-        dirty = _run_git(['status', '--porcelain'], work, env)
-        if not dirty:
+        changes = _run_git(['diff', '--cached', '--name-status', '--no-renames', '-z'], work, env).split('\0')[:-1]
+        files = sorted(zip(changes[::2], changes[1::2]), key=lambda item: (item[0] != 'D', item[1]))
+        if not files:
             return 'No changes found. Nothing was pushed.'
-        # Config is local to the cloned repository; token and personal email are never embedded.
-        _run_git(['-c', f'user.name={name}', '-c', f'user.email={email}', 'commit', '-m', message], work, env)
+        # Unstage the batch; deletions go first so file/directory replacements remain one path per commit.
+        _run_git(['reset', '--mixed', 'HEAD'], work, env)
+        for number, (status, path) in enumerate(files, 1):
+            if progress: progress(f'Creating commit {number}/{len(files)}: {path}')
+            literal = ':(literal)' + path
+            if status == 'D': _run_git(['rm', '--cached', '--', literal], work, env)
+            else: _run_git(['add', '--', literal], work, env)
+            _run_git(['-c', f'user.name={name}', '-c', f'user.email={email}', 'commit', '-m', f'{message}: {path}'], work, env)
+        if _run_git(['status', '--porcelain'], work, env):
+            raise RuntimeError('Some file changes were not committed. Nothing was pushed.')
         if progress: progress(f'Pushing to {branch}…')
         _run_git(['push', 'origin', f'HEAD:refs/heads/{branch}'], work, env)
         commit = _run_git(['rev-parse', '--short=8', 'HEAD'], work, env)
-        return f'Published commit {commit} to {repo}:{branch}'
+        return f'Published {len(files)} file commits to {repo}:{branch}. Last commit {commit}.'
 
 
 def download_hf(repo: str, token: str, branch: str, output: Path, progress=None) -> Path:
