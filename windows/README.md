@@ -1,6 +1,6 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.21** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.22** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
