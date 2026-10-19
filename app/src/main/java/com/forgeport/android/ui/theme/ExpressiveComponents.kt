@@ -3,6 +3,11 @@ package com.forgeport.android.ui.theme
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -31,32 +36,32 @@ private data class PressStyle(val source: MutableInteractionSource, val modifier
 private fun pressStyle(modifier: Modifier, enabled: Boolean, morphShape: Boolean = true): PressStyle {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed && enabled) 0.96f else 1f, ExpressiveMotion.feedback(), label = "Press scale")
-    val corner by animateFloatAsState(if (morphShape && pressed && enabled) 28f else 50f, ExpressiveMotion.feedback(), label = "Press shape")
-    return PressStyle(source, modifier.graphicsLayer { scaleX = scale; scaleY = scale }, RoundedCornerShape(corner.roundToInt().coerceIn(0, 50)))
+    val scale by animateFloatAsState(if (pressed && enabled) 0.98f else 1f, ExpressiveMotion.feedback(), label = "Press scale")
+    val corner by animateFloatAsState(if (morphShape && pressed && enabled) 14f else 18f, ExpressiveMotion.feedback(), label = "Press shape")
+    return PressStyle(source, modifier.graphicsLayer { scaleX = scale; scaleY = scale }, RoundedCornerShape(corner.roundToInt().dp))
 }
 
 @Composable
 internal fun ExpressiveButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
-    val press = pressStyle(modifier.heightIn(min = 56.dp), enabled)
+    val press = pressStyle(modifier.heightIn(min = 48.dp), enabled)
     Button(onClick, press.modifier, enabled, shape = press.shape, interactionSource = press.source, content = content)
 }
 
 @Composable
 internal fun ExpressiveTonalButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
-    val press = pressStyle(modifier.heightIn(min = 56.dp), enabled)
+    val press = pressStyle(modifier.heightIn(min = 48.dp), enabled)
     FilledTonalButton(onClick, press.modifier, enabled, shape = press.shape, interactionSource = press.source, content = content)
 }
 
 @Composable
 internal fun ExpressiveOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
-    val press = pressStyle(modifier.heightIn(min = 56.dp), enabled)
-    OutlinedButton(onClick, press.modifier, enabled, shape = press.shape, interactionSource = press.source, content = content)
+    val press = pressStyle(modifier.heightIn(min = 48.dp), enabled)
+    OutlinedButton(onClick, press.modifier, enabled, shape = press.shape, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), interactionSource = press.source, content = content)
 }
 
 @Composable
 internal fun ExpressiveTextButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
-    val press = pressStyle(modifier.heightIn(min = 52.dp), enabled)
+    val press = pressStyle(modifier.heightIn(min = 48.dp), enabled)
     TextButton(onClick, press.modifier, enabled, shape = press.shape, interactionSource = press.source, content = content)
 }
 
@@ -70,20 +75,19 @@ internal fun ExpressiveIconButton(onClick: () -> Unit, modifier: Modifier = Modi
 
 @Composable
 internal fun ExpressiveFilterChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    val press = pressStyle(modifier.heightIn(min = 52.dp), enabled)
-    val radius by animateFloatAsState(if (selected) 16f else 24f, ExpressiveMotion.feedback(), label = "Selection shape")
-    FilterChip(selected, onClick, label, press.modifier, enabled, shape = RoundedCornerShape(radius.dp), interactionSource = press.source, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = MaterialTheme.colorScheme.onPrimary, selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary))
+    val press = pressStyle(modifier.heightIn(min = 48.dp), enabled)
+    FilterChip(selected, onClick, label, press.modifier, enabled, shape = MaterialTheme.shapes.small, interactionSource = press.source, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface, selectedContainerColor = MaterialTheme.colorScheme.primaryContainer, selectedLabelColor = MaterialTheme.colorScheme.primary, selectedLeadingIconColor = MaterialTheme.colorScheme.primary))
 }
 
 @Composable
-internal fun ExpressiveCard(modifier: Modifier = Modifier, colors: CardColors = CardDefaults.elevatedCardColors(), content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(modifier, colors = colors, content = content)
+internal fun ExpressiveCard(modifier: Modifier = Modifier, colors: CardColors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface), content: @Composable ColumnScope.() -> Unit) {
+    ElevatedCard(modifier, shape = MaterialTheme.shapes.extraLarge, colors = colors, elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp), content = content)
 }
 
 @Composable
 internal fun ExpressiveCard(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val press = pressStyle(modifier, true, morphShape = false)
-    ElevatedCard(onClick, press.modifier, interactionSource = press.source, content = content)
+    ElevatedCard(onClick, press.modifier, shape = MaterialTheme.shapes.medium, colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp), interactionSource = press.source, content = content)
 }
 
 @Composable
@@ -114,4 +118,31 @@ internal fun AdaptiveContent(modifier: Modifier = Modifier, maxWidth: Int = 840,
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Box(Modifier.widthIn(max = maxWidth.dp).fillMaxSize(), content = content)
     }
+}
+
+/** Filled, quietly outlined fields shared by forms, search and credential dialogs. */
+@Composable
+internal fun AetherPortTextField(
+    value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier,
+    enabled: Boolean = true, label: (@Composable () -> Unit)? = null,
+    placeholder: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    singleLine: Boolean = false, minLines: Int = 1,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, modifier = modifier,
+        enabled = enabled, label = label, placeholder = placeholder, trailingIcon = trailingIcon,
+        singleLine = singleLine, minLines = minLines, visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
+        shape = MaterialTheme.shapes.small,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedBorderColor = Color.Transparent, disabledBorderColor = Color.Transparent,
+        ),
+    )
 }
