@@ -5,15 +5,15 @@ import com.forgeport.android.ui.theme.ExpressiveTextButton as TextButton
 import com.forgeport.android.ui.theme.ExpressiveIconButton as IconButton
 import com.forgeport.android.ui.theme.ExpressiveDialog as AlertDialog
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
 import com.forgeport.android.ui.theme.ExpressiveMotion
 import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
@@ -102,7 +102,7 @@ internal fun GalleryReaderScreen(url: String, startPage: Int, vm: GalleryViewMod
     var mode by rememberSaveable { mutableStateOf(vm.repository.readingMode()) }
     var controls by rememberSaveable { mutableStateOf(true) }
     var settings by remember { mutableStateOf(false) }
-    var zoomed by remember { mutableStateOf(false) }
+    var zoomed by remember(gallery.key) { mutableStateOf(false) }
     var autoScroll by rememberSaveable(gallery.key) { mutableStateOf(false) }
     var intervalSeconds by rememberSaveable { mutableIntStateOf(vm.repository.autoScrollSeconds()) }
     var autoScrollDialog by rememberSaveable { mutableStateOf(false) }
@@ -152,12 +152,12 @@ internal fun GalleryReaderScreen(url: String, startPage: Int, vm: GalleryViewMod
             if (vertical.isScrollInProgress || pager.isScrollInProgress) continue
             if (mode == "VERTICAL") {
                 val viewport = vertical.layoutInfo.let { it.viewportEndOffset - it.viewportStartOffset }
-                val moved = vertical.animateScrollBy(viewport * 0.85f, animationSpec = ExpressiveMotion.spatial())
+                val moved = vertical.scrollBy(viewport * 0.85f)
                 if (abs(moved) < 1f && current == gallery.pages.lastIndex) {
                     autoScroll = false; controls = true; break
                 }
             } else if (current < gallery.pages.lastIndex) {
-                pager.animateScrollToPage(current + 1, animationSpec = ExpressiveMotion.spatial())
+                pager.scrollToPage(current + 1)
             } else {
                 autoScroll = false; controls = true; break
             }
@@ -179,8 +179,22 @@ internal fun GalleryReaderScreen(url: String, startPage: Int, vm: GalleryViewMod
         }) { Text(if (autoScroll) "Apply" else "Start") } },
         dismissButton = { TextButton(onClick = { autoScrollDialog = false }) { Text("Cancel") } },
     )
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        AnimatedVisibility(controls, enter = expandVertically(ExpressiveMotion.spatial()), exit = shrinkVertically(ExpressiveMotion.spatial())) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(Modifier.fillMaxSize()) {
+            if (mode == "VERTICAL") {
+                LazyColumn(state = vertical, modifier = Modifier.fillMaxSize()) {
+                    itemsIndexed(gallery.pages, key = { index, _ -> index }) { index, _ ->
+                        ReaderPage(vm.repository, gallery, index, vertical = true, toggle = { controls = !controls }, zoomChanged = { if (index == current) zoomed = it }, readyChanged = { readyPages[index] = it })
+                    }
+                }
+            } else {
+                HorizontalPager(state = pager, reverseLayout = mode == "RTL", userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize()) { index ->
+                    ReaderPage(vm.repository, gallery, index, vertical = false, toggle = { controls = !controls }, zoomChanged = { if (index == current) zoomed = it }, readyChanged = { readyPages[index] = it })
+                }
+            }
+        }
+        AnimatedVisibility(controls, modifier = Modifier.align(Alignment.TopCenter),
+            enter = fadeIn(ExpressiveMotion.spatial()), exit = fadeOut(ExpressiveMotion.spatial())) {
             Surface {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to gallery") }
@@ -205,20 +219,8 @@ internal fun GalleryReaderScreen(url: String, startPage: Int, vm: GalleryViewMod
                 }
             }
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (mode == "VERTICAL") {
-                LazyColumn(state = vertical, modifier = Modifier.fillMaxSize()) {
-                    itemsIndexed(gallery.pages, key = { index, _ -> index }) { index, _ ->
-                        ReaderPage(vm.repository, gallery, index, vertical = true, toggle = { controls = !controls }, zoomChanged = { if (index == current) zoomed = it }, readyChanged = { readyPages[index] = it })
-                    }
-                }
-            } else {
-                HorizontalPager(state = pager, reverseLayout = mode == "RTL", userScrollEnabled = !zoomed, modifier = Modifier.fillMaxSize()) { index ->
-                    ReaderPage(vm.repository, gallery, index, vertical = false, toggle = { controls = !controls }, zoomChanged = { if (index == current) zoomed = it }, readyChanged = { readyPages[index] = it })
-                }
-            }
-        }
-        AnimatedVisibility(controls, enter = expandVertically(ExpressiveMotion.spatial()), exit = shrinkVertically(ExpressiveMotion.spatial())) {
+        AnimatedVisibility(controls, modifier = Modifier.align(Alignment.BottomCenter),
+            enter = fadeIn(ExpressiveMotion.spatial()), exit = fadeOut(ExpressiveMotion.spatial())) {
             Surface {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { jump(current - 1) }, enabled = current > 0) {
@@ -261,8 +263,8 @@ private fun ReaderPage(
             TextButton(onClick = toggle) { Text("Show / hide controls") }
         }
         is GalleryImageState.Ready -> {
-            var scale by remember(index, vertical) { mutableFloatStateOf(1f) }
-            var offset by remember(index, vertical) { mutableStateOf(Offset.Zero) }
+            var scale by remember(gallery.key, index, vertical) { mutableFloatStateOf(1f) }
+            var offset by remember(gallery.key, index, vertical) { mutableStateOf(Offset.Zero) }
             var size by remember { mutableStateOf(IntSize.Zero) }
             val transform = rememberTransformableState { zoom, pan, _ ->
                 scale = (scale * zoom).coerceIn(1f, 4f)
@@ -277,7 +279,7 @@ private fun ReaderPage(
                     image.bitmap.asImageBitmap(), "Page ${index + 1}",
                     modifier = Modifier.fillMaxSize().graphicsLayer {
                         scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y
-                    }.transformable(state = transform, canPan = { scale > 1f }).pointerInput(index, vertical) {
+                    }.transformable(state = transform, canPan = { scale > 1f }).pointerInput(gallery.key, index, vertical) {
                         detectTapGestures(onTap = { toggle() }, onDoubleTap = {
                             scale = if (scale > 1f) 1f else 2f
                             offset = Offset.Zero
