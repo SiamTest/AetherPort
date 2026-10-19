@@ -376,34 +376,60 @@ class AetherPortWindow(tk.Tk):
         self.show_page('Hugging Face')
 
     def _google(self):
-        self.section('Google OAuth','Generate Google Drive credentials using a Desktop OAuth client. The browser opens for account authorization.')
+        self.section('Google token generator','Create token.pickle for WZML-X using a Google Desktop credentials.json.')
         box=self.card()
-        filename=tk.StringVar(value='No credentials.json selected')
-        selected={'path':None}
+        filename=tk.StringVar(value=getattr(self,'google_credentials_file',None).name if getattr(self,'google_credentials_file',None) else 'No credentials.json selected')
         def choose():
             result=filedialog.askopenfilename(parent=self,filetypes=[('JSON files','*.json')])
-            if result: selected['path']=Path(result);filename.set(Path(result).name)
+            if result:
+                self.google_credentials_file=Path(result)
+                filename.set(Path(result).name)
         Button(box,'Choose credentials.json',choose).pack(anchor='w',pady=(0,5))
-        label(box,'Select a Desktop application OAuth client (not a Web client).',10,color=MUTED,bg=SURFACE).pack(anchor='w')
-        label(box,'File: ',10,color=MUTED,bg=SURFACE).pack(anchor='w',pady=(8,0))
-        tk.Label(box,textvariable=filename,bg=SURFACE,fg=MUTED,font=(FONT,10)).pack(anchor='w')
-        scopes=tk.StringVar(value=DEFAULT_SCOPES)
-        field_line(box,'Google OAuth scopes (space-separated)',scopes)
+        label(box,'Use the JSON downloaded for a Desktop app client in Google Cloud Console.',10,color=MUTED,bg=SURFACE,wrap=650).pack(anchor='w')
+        tk.Label(box,textvariable=filename,bg=SURFACE,fg=MUTED,font=(FONT,10)).pack(anchor='w',pady=8)
+        preset=tk.StringVar(value=getattr(self,'google_preset','WZML-X (Drive + YouTube)'))
+        scopes=tk.StringVar(value=getattr(self,'google_custom_scopes',DEFAULT_SCOPES))
+        choices=ttk.Combobox(box,textvariable=preset,state='readonly',values=['WZML-X (Drive + YouTube)','Drive only','Custom'])
+        choices.pack(fill='x',pady=8)
+        label(box,'WZML-X requests Drive access and YouTube upload, read-only and force-SSL permissions.',10,color=MUTED,bg=SURFACE,wrap=650).pack(anchor='w')
+        custom=tk.Frame(box,bg=SURFACE)
+        field_line(custom,'Google OAuth scopes (space-separated)',scopes)
+        def selection(event=None):
+            if preset.get()=='Custom':custom.pack(fill='x',pady=8,after=choices)
+            else:custom.pack_forget()
+        choices.bind('<<ComboboxSelected>>',selection)
+        selection()
+        force=tk.BooleanVar(value=False)
+        tk.Checkbutton(box,text='Sign in again',variable=force,bg=SURFACE,fg=TEXT,selectcolor=FIELD,
+                       activebackground=SURFACE,activeforeground=TEXT).pack(anchor='w',pady=8)
         def generate():
-            if not selected['path']:
+            if self.busy:return
+            path=getattr(self,'google_credentials_file',None)
+            if path is None:
                 messagebox.showerror('Missing credentials','Choose credentials.json.',parent=self);return
+            self.google_preset=preset.get()
+            self.google_custom_scopes=scopes.get()
+            requested=DEFAULT_SCOPES if preset.get().startswith('WZML-X') else 'https://www.googleapis.com/auth/drive' if preset.get()=='Drive only' else scopes.get()
+            force_new=force.get()
+            self.google_tokens=None
+            results.pack_forget()
             def success(result):
                 self.google_tokens=result
                 self.show_page('Google')
-            self._task(lambda:authorize(selected['path'],scopes.get()),success)
-        Button(box,'Generate Google tokens',generate,primary=True).pack(fill='x',pady=12)
+            self._task(lambda:authorize(path,requested,force_new=force_new),success)
+        Button(box,'Generate token.pickle',generate,primary=True).pack(fill='x',pady=12)
+        label(box,'Valid saved tokens are reused; expired tokens refresh automatically. New authorization opens your browser.',10,color=MUTED,bg=SURFACE,wrap=650).pack(anchor='w')
+        results=tk.Frame(box,bg=SURFACE)
         if self.google_tokens:
-            row=tk.Frame(box,bg=SURFACE);row.pack(fill='x',pady=8)
+            results.pack(fill='x',pady=8)
             def save(idx,filename):
+                if self.busy or not self.google_tokens:return
                 dest=filedialog.asksaveasfilename(parent=self,initialfile=filename)
-                if dest: Path(dest).write_bytes(self.google_tokens[idx])
-            Button(row,'Save token.json',lambda:save(0,'token.json')).pack(side='left',padx=(0,10))
-            Button(row,'Save token.pickle',lambda:save(1,'token.pickle')).pack(side='left')
+                if dest:
+                    try: Path(dest).write_bytes(self.google_tokens[idx])
+                    except OSError as exc: messagebox.showerror('Token export failed',safe_error(exc),parent=self)
+            Button(results,'Save token.pickle',lambda:save(1,'token.pickle'),primary=True).pack(side='left',padx=(0,10))
+            Button(results,'Save token.json',lambda:save(0,'token.json')).pack(side='left')
 
     def _variables(self):
         if not hasattr(self,'var_tab'): self.var_tab='Credentials'
