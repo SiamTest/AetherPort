@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.21 — WZML-X Google token generator
+
+- Add WZML-X Drive + YouTube, Drive-only and custom permissions with Desktop credentials selection and token.pickle generation.
+- Reuse and refresh encrypted saved credentials. Sign in again switches accounts, and failed authorization preserves the previous saved token.
+- Export real Google credentials objects and token.json; require trusted Google OAuth endpoints and all selected permissions.
+
+
+## 3.0.20 — Empty repositories and missing branches
+
+- Initialize empty GitHub and Hugging Face repositories on the selected branch.
+- Create missing branches from the remote default branch, preserving its history and leaving that branch unchanged.
+- Keep one commit per changed file, token-owner attribution, and a single non-force push after all commits succeed.
+
 ## 3.0.19 — Hidden Git operations
 
 - Launch Git commands without console windows on Windows, eliminating terminal flashes during publishing and Space downloads.
