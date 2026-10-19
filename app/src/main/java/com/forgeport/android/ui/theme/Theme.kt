@@ -1,83 +1,64 @@
 package com.forgeport.android.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-private val AetherPortLight = lightColorScheme(
-    primary = Color(0xFF006B57), onPrimary = Color.White,
-    primaryContainer = Color(0xFFB0F1D8), onPrimaryContainer = Color(0xFF00291E),
-    secondary = Color(0xFF42665B), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD4E9E0), onSecondaryContainer = Color(0xFF112B23),
-    tertiary = Color(0xFF006879), onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFA9EDFA), onTertiaryContainer = Color(0xFF001F26),
-    background = Color(0xFFF7FBF8), onBackground = Color(0xFF17201C),
-    surface = Color(0xFFF7FBF8), onSurface = Color(0xFF17201C),
-    surfaceVariant = Color(0xFFDEE9E2), onSurfaceVariant = Color(0xFF414B45),
-    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF0F6F2),
-    surfaceContainer = Color(0xFFEAF1EC), surfaceContainerHigh = Color(0xFFE4ECE6),
-    surfaceContainerHighest = Color(0xFFDEE7E0),
-    outline = Color(0xFF717D75), outlineVariant = Color(0xFFC1CCC4),
-)
-
-private val AetherPortDark = darkColorScheme(
-    primary = Color(0xFF6EE7B7), onPrimary = Color(0xFF003828),
-    primaryContainer = Color(0xFF164C3B), onPrimaryContainer = Color(0xFFB0F1D8),
-    secondary = Color(0xFFB0CFC1), onSecondary = Color(0xFF1C362B),
-    secondaryContainer = Color(0xFF2E463C), onSecondaryContainer = Color(0xFFD4E9E0),
-    tertiary = Color(0xFF22D3EE), onTertiary = Color(0xFF003640),
-    tertiaryContainer = Color(0xFF004F5C), onTertiaryContainer = Color(0xFFA9EDFA),
-    background = Color.Black, onBackground = Color(0xFFE3EEE7),
-    surface = Color.Black, onSurface = Color(0xFFE3EEE7),
-    surfaceVariant = Color(0xFF26332C), onSurfaceVariant = Color(0xFFBECEC3),
-    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF101715),
-    surfaceContainer = Color(0xFF151D19), surfaceContainerHigh = Color(0xFF1D2621),
-    surfaceContainerHighest = Color(0xFF26302A),
-    outline = Color(0xFF899C8F), outlineVariant = Color(0xFF3D4B42),
+// Auralis's charcoal surfaces and violet accent, shared by every native screen.
+private val AetherPortColors = darkColorScheme(
+    primary = Color(0xFFC7B5FF), onPrimary = Color(0xFF302347),
+    primaryContainer = Color(0xFF332B45), onPrimaryContainer = Color(0xFFE9DDFF),
+    secondary = Color(0xFFC9BEDA), onSecondary = Color(0xFF302A3C),
+    secondaryContainer = Color(0xFF332B45), onSecondaryContainer = Color(0xFFE9DDFF),
+    tertiary = Color(0xFFD7B8D3), onTertiary = Color(0xFF3B2638),
+    tertiaryContainer = Color(0xFF50394D), onTertiaryContainer = Color(0xFFF5D4EE),
+    background = Color(0xFF111015), onBackground = Color(0xFFE9E5EF),
+    surface = Color(0xFF19171E), onSurface = Color(0xFFE9E5EF),
+    surfaceVariant = Color(0xFF211E28), onSurfaceVariant = Color(0xFFAAA4B5),
+    surfaceContainerLowest = Color(0xFF111015), surfaceContainerLow = Color(0xFF17151B),
+    surfaceContainer = Color(0xFF211E28), surfaceContainerHigh = Color(0xFF2B2438),
+    surfaceContainerHighest = Color(0xFF332B45),
+    outline = Color(0xFF766D85), outlineVariant = Color(0xFF302B39),
+    error = Color(0xFFFFB4C8), onError = Color(0xFF5D112B),
+    errorContainer = Color(0xFF3C2730), onErrorContainer = Color(0xFFFFCDD8),
 )
 
 private val AetherPortShapes = Shapes(
-    extraSmall = RoundedCornerShape(16.dp),
-    small = RoundedCornerShape(20.dp),
-    medium = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomEnd = 28.dp, bottomStart = 12.dp),
-    large = RoundedCornerShape(28.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
-// A clear hierarchy with comfortable line heights; sp respects Android font scaling.
+// Native sans-serif on Android; scalable type with Auralis's compact hierarchy.
 private val AetherPortTypography = Typography(
-    displaySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
+    displaySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 42.sp, letterSpacing = (-1).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 38.sp, letterSpacing = (-0.8).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp, letterSpacing = (-0.6).sp),
+    headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 30.sp, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 28.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 23.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 22.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
     labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
     labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 16.sp, letterSpacing = 1.4.sp),
 )
 
 @Composable
 fun AetherPortTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) AetherPortDark else AetherPortLight,
-        shapes = AetherPortShapes,
-        typography = AetherPortTypography,
-        content = content,
-    )
+    MaterialTheme(colorScheme = AetherPortColors, shapes = AetherPortShapes,
+        typography = AetherPortTypography, content = content)
 }
