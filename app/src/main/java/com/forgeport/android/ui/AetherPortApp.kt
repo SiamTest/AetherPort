@@ -9,6 +9,9 @@ import com.forgeport.android.ui.theme.ExpressiveFilterChip as FilterChip
 import com.forgeport.android.ui.theme.ExpressiveCard as ElevatedCard
 import com.forgeport.android.ui.theme.ExpressiveDialog as AlertDialog
 import android.net.Uri
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import com.forgeport.android.oauth.GoogleOAuthService
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
@@ -200,7 +203,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
         if (settings) ProjectFolderSettings(vm) { settings = false }
         ModalNavigationDrawer(
             drawerState = drawerState,
-            gesturesEnabled = !readerRoute,
+            gesturesEnabled = drawerState.isOpen && !readerRoute,
             drawerContent = {
                 ModalDrawerSheet(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Row(
@@ -254,7 +257,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
         ) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
-                contentWindowInsets = if (nativeGalleryRoute) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
+                contentWindowInsets = if (nativeGalleryRoute || readerRoute) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
                 topBar = {
                     if (!readerRoute && !nativeGalleryRoute) {
                         CenterAlignedTopAppBar(
@@ -284,7 +287,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
                         composable("ehentai") {
                             GalleryCatalogScreen(galleryVm, back = { nav.popBackStack() }, open = ::openGallery,
                                 website = ::openWebsite, library = { openGallerySection("gallery-library") },
-                                downloads = { openGallerySection("gallery-downloads") })
+                                downloads = { openGallerySection("gallery-downloads") }, read = ::readGallery)
                         }
                         composable("gallery-library") {
                             GalleryLibraryScreen(galleryVm, ::openGallery, browse = { openGallerySection("ehentai") },
@@ -578,34 +581,65 @@ private fun HfDownloadScreen(vm: AetherPortViewModel, manageRepositories: () -> 
 
 @Composable
 private fun GoogleOAuthScreen(vm: AetherPortViewModel) {
-    var scopes by remember { mutableStateOf("https://www.googleapis.com/auth/drive") }
-    val coroutineScope = rememberCoroutineScope()
-    val credentialsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.generateGoogleTokens(it, scopes) } }
+    var preset by rememberSaveable { mutableStateOf("WZML-X") }
+    var customScopes by rememberSaveable { mutableStateOf(GoogleOAuthService.WZML_SCOPES.joinToString("\n")) }
+    var credentialsUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var forceNew by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scopes = when (preset) {
+        "Drive only" -> "https://www.googleapis.com/auth/drive"
+        "Custom" -> customScopes
+        else -> GoogleOAuthService.WZML_SCOPES.joinToString(" ")
+    }
+    val credentialsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            credentialsUri = uri.toString()
+        }
+    }
     val savePickle = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        val bytes = vm.googleTokenBundle?.tokenPickle ?: return@rememberLauncherForActivityResult
-        uri?.let { coroutineScope.launch { vm.saveBytes(it, bytes) } }
+        uri?.let { vm.saveGoogleToken(it, pickle = true) }
     }
     val saveJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        val bytes = vm.googleTokenBundle?.tokenJson ?: return@rememberLauncherForActivityResult
-        uri?.let { coroutineScope.launch { vm.saveBytes(it, bytes) } }
+        uri?.let { vm.saveGoogleToken(it, pickle = false) }
     }
     ScreenColumn(vm) {
-        SectionHeader("Google OAuth", "Generate Google Drive credentials locally using a Desktop OAuth client.")
-        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Text("AetherPort opens the system browser and receives Google's callback on 127.0.0.1, matching the InstalledAppFlow-style desktop flow.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionHeader("Google token generator", "Create token.pickle for WZML-X using your Google Desktop credentials.json.")
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("WZML-X", "Drive only", "Custom").forEach { value ->
+                FilterChip(preset == value, onClick = { preset = value }, label = { Text(value) }, enabled = !vm.busy)
+            }
         }
-        OutlinedTextField(scopes, { scopes = it }, label = { Text("Scopes") }, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { credentialsPicker.launch(arrayOf("application/json", "text/json", "text/plain")) }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Filled.Key, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("Choose credentials.json and authorize")
+        if (preset == "Custom") OutlinedTextField(customScopes, { customScopes = it }, label = { Text("Google OAuth scopes") },
+            enabled = !vm.busy, minLines = 3, modifier = Modifier.fillMaxWidth())
+        else Text(if (preset == "WZML-X") "Google Drive access plus YouTube upload, read-only and force-SSL permissions."
+            else "Full Google Drive access, without YouTube permissions.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedButton(onClick = { credentialsPicker.launch(arrayOf("application/json", "text/json", "text/plain")) },
+            enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+            Text(if (credentialsUri == null) "Choose credentials.json" else "Replace credentials.json")
         }
-        Text("For long-lived refresh access, configure the OAuth consent screen appropriately. Google can still revoke refresh tokens.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (credentialsUri == null) "Use the JSON downloaded for a Desktop app client in Google Cloud Console."
+            else "credentials.json selected", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(forceNew, onCheckedChange = { forceNew = it }, enabled = !vm.busy)
+            Text("Sign in again", style = MaterialTheme.typography.bodyMedium)
+        }
+        Button(onClick = { credentialsUri?.let { vm.generateGoogleTokens(Uri.parse(it), scopes, forceNew) } },
+            enabled = credentialsUri != null && !vm.busy, modifier = Modifier.fillMaxWidth()) {
+            if (vm.busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            else Icon(Icons.Filled.Key, contentDescription = null)
+            Spacer(Modifier.width(8.dp)); Text(if (vm.busy) "Generating token…" else "Generate token.pickle")
+        }
+        Text("Valid saved tokens are reused; expired tokens refresh automatically. New authorization opens your browser.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         vm.googleTokenBundle?.let {
             ElevatedCard {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Credentials ready", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("token.pickle stores the refresh credentials and lets google-auth refresh the access token on first use.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = { savePickle.launch("token.pickle") }, modifier = Modifier.fillMaxWidth()) { Text("Save token.pickle") }
-                    OutlinedButton(onClick = { saveJson.launch("token.json") }, modifier = Modifier.fillMaxWidth()) { Text("Save token.json") }
+                    Text("Token ready", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Export token.pickle for WZML-X. It includes your access token, refresh credentials and expiry.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = { savePickle.launch("token.pickle") }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Save token.pickle") }
+                    OutlinedButton(onClick = { saveJson.launch("token.json") }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text("Save token.json") }
                 }
             }
         }
