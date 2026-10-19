@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.22 — Portable token.pickle exports
+
+- Export a whitelist of credential data instead of serializing Google-auth's private runtime managers. Fix token.pickle loading on older bots without google.auth._regional_access_boundary_utils.
+- Keep access token, expiry, refresh credentials and scopes; preserve the existing encrypted cache and sign-in flow.
+- Add a regression check that allows only the public Google credentials and datetime classes in exported pickle references.
+- Verify Windows and Android exports can unpickle and refresh with Google-auth 1.35.0, 2.23.4, 2.38.0 and 2.62.0.
+
+
 ## 3.0.21 — WZML-X Google token generator
 
 - Add WZML-X Drive + YouTube, Drive-only and custom permissions with Desktop credentials selection and token.pickle generation.
