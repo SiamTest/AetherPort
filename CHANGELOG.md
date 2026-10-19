@@ -1,3 +1,9 @@
+## Windows 3.0.22 — Older-bot token.pickle compatibility
+
+- Stop exporting private Google-auth runtime objects, fixing missing google.auth._regional_access_boundary_utils errors in older bot environments.
+- Preserve credentials, expiry, scopes and the encrypted token cache; existing saved credentials can generate a replacement pickle without a new sign-in.
+- Regression-test the exported class references and verify unpickle/refresh against Google-auth 1.35.0, 2.23.4, 2.38.0 and 2.62.0. Android remains at 3.0.22 and already uses the portable format.
+
 ## Android 3.0.22 / Windows 3.0.21 — WZML-X Google token generator
 
 - Rework Google token generation with WZML-X Drive and YouTube scopes, Drive-only and custom presets, Desktop client file selection and a separate Generate action.
