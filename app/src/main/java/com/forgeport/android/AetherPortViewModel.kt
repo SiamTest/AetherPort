@@ -357,17 +357,24 @@ class AetherPortViewModel(application: Application) : AndroidViewModel(applicati
         pendingHfZip = null
     }
 
-    fun generateGoogleTokens(credentialsUri: Uri, scopesText: String) {
+    fun generateGoogleTokens(credentialsUri: Uri, scopesText: String, forceNew: Boolean = false) {
         runBusy {
             val scopes = scopesText
                 .split(Regex("[\\s,]+"))
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
                 .distinct()
-            googleTokenBundle = googleOAuthService.authorizeWithDesktopCredentials(credentialsUri, scopes)
+            googleTokenBundle = null
+            googleTokenBundle = googleOAuthService.authorizeWithDesktopCredentials(credentialsUri, scopes, forceNew)
             // Save token.pickle and token.json buttons are shown by the UI.
             clearStatus()
         }
+    }
+
+    fun saveGoogleToken(uri: Uri, pickle: Boolean) {
+        val bundle = googleTokenBundle ?: return
+        val bytes = if (pickle) bundle.tokenPickle else bundle.tokenJson
+        runBusy { saveBytes(uri, bytes) }
     }
 
     suspend fun saveBytes(uri: Uri, bytes: ByteArray) = withContext(Dispatchers.IO) {
