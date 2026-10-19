@@ -1,5 +1,13 @@
 # Changelog
 
+## Windows 3.0.23 — Auralis-inspired interface
+
+- Match SiamTest/Auralis's charcoal surfaces, soft violet accents, muted text, rounded shapes and compact type hierarchy.
+- Restyle native fields, action buttons, cards, navigation and dialogs across publishing, Google credentials, Variables, Updates and the Android gallery.
+- Use a consistent dark appearance and readable system-bar icons on Android. Keep menu-button-only drawer opening, instant gallery auto-advance and stable reader image sizing.
+- Give Windows rounded panels, buttons and filled fields while retaining native keyboard controls and existing callbacks.
+- Preserve saved credentials, OAuth generation, publishing, gallery downloads and update behavior.
+
 ## 3.0.22 — Portable token.pickle exports
 
 - Export a whitelist of credential data instead of serializing Google-auth's private runtime managers. Fix token.pickle loading on older bots without google.auth._regional_access_boundary_utils.
