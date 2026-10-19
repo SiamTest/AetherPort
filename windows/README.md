@@ -1,6 +1,6 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.22** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.23** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
@@ -62,3 +62,8 @@ MIT License (matching the supplied Android AetherPort source). Project derived f
 ## Google token generator
 
 Enable Google Drive API and YouTube Data API v3 in your Google Cloud project for the WZML-X preset. Configure the consent screen and test users, create a **Desktop app** OAuth client, and download its JSON. In Google, choose the file and permissions, click **Generate token.pickle**, complete browser sign-in, then save the file. Valid saved tokens are reused and expired tokens refresh automatically. Exports are genuine Google credentials objects with access and refresh tokens and UTC expiry. Full instructions are in the root README.
+
+
+### Interface check
+
+The interface follows Auralis’s charcoal/violet styling with rounded controls and native keyboard focus. Run `python ../tools/verify_windows_ui.py` from `windows/` with a desktop display to open all six pages at the default and minimum window sizes and verify button states, shell clicks and focus. No account or network is used.
