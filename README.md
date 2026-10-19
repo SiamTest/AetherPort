@@ -1,6 +1,6 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.17** and **Windows 3.0.19**.
+This combined source project contains **Android 3.0.22** and **Windows 3.0.21**.
 Both platforms publish ZIPs with one commit per changed file. Android retains faster gallery thumbnails; Windows retains its saved repository chooser.
 
 - Android source remains at the repository root (`app/`, Gradle files and `tools/`).
@@ -15,7 +15,7 @@ The combined upload restores both workflows. Later Windows-only changes run the 
 
 AetherPort is a native Android workspace for publishing projects, connecting accounts, and reading galleries. Formerly ForgePort.
 
-**Version:** 3.0.17
+**Version:** 3.0.22
 
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 **Minimum Android:** Android 8.0 (API 26)  
@@ -235,18 +235,20 @@ swiping, pause/resume, restart recovery, and reading a completed gallery with
 airplane mode enabled. Notification permission is requested when starting a
 download on Android 13+; declining it does not prevent the foreground service.
 
-## Google OAuth / token.pickle
-
-1. In Google Cloud, create an OAuth client of type **Desktop app**.
-2. Download its `credentials.json`.
-3. Open **Google OAuth** in AetherPort Android.
-4. Choose `credentials.json` and authorize in the system browser.
-5. Save `token.pickle` and/or `token.json`.
-
-The flow requests offline access and explicit consent. `token.pickle` is generated for Python projects that load `google.oauth2.credentials.Credentials` using `pickle.load()` and is designed to refresh through the saved refresh token on first use.
-
-Google controls refresh-token validity and can revoke tokens. Configure the OAuth consent screen appropriately for long-lived use.
-
+## Google OAuth / token.pickle
+
+The generator on Android and Windows produces a Python `google.oauth2.credentials.Credentials` pickle compatible with WZML-X. This is an independent implementation of the format and sign-in flow, with the same default scopes as [WZML-X's generator](https://github.com/SilentDemonSD/WZML-X/blob/wzv3/gen_scripts/gen_token_pickle/script.py).
+
+1. In Google Cloud Console, enable **Google Drive API** and **YouTube Data API v3** for the WZML-X preset. Configure the consent screen and add your Google account as a test user if the project is in Testing.
+2. Create an OAuth client of type **Desktop app**, download its JSON, and choose it under **Google** in AetherPort. Android/Web client credentials are not accepted by this generator.
+3. Choose **WZML-X** (Drive plus YouTube), **Drive only**, or **Custom** permissions.
+4. Tap **Generate token.pickle**. A valid saved token is reused; an expired token refreshes automatically. Otherwise, complete sign-in and approve the selected permissions in the system browser. Both the browser and AetherPort must run on the same device for the local callback.
+5. Save **token.pickle** for WZML-X or export **token.json**. The pickle includes the current access token, UTC expiry, refresh token, client ID/secret, and scopes. Google-auth can refresh it after the access token expires.
+
+The WZML-X preset requests `drive`, `youtube.upload`, `youtube.readonly`, and `youtube.force-ssl` under `https://www.googleapis.com/auth/`. Choose **Sign in again** to select a different Google account or replace a revoked grant. New credentials replace the saved entry only after successful authorization with all selected permissions.
+
+Tokens are cached encrypted using the existing platform credential protection and kept separate from Variables. Generated pickle files are exports; the app never unpickles imported files. Google controls token validity, including testing-mode expiration and revocation. This implementation uses browser callbacks and PKCE, without the obsolete console/OOB fallback.
+
 ## GitHub variables
 
 Example:
