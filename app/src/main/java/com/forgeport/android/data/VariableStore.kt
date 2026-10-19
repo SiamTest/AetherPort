@@ -13,8 +13,8 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class VariableStore(context: Context) {
-    private val prefs = context.getSharedPreferences("forgeport_variables_v1", Context.MODE_PRIVATE)
+class VariableStore(context: Context, preferencesName: String = "forgeport_variables_v1") {
+    private val prefs = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
     fun list(): List<SecretVariable> = prefs.all.keys
