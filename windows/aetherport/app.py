@@ -1,4 +1,4 @@
-"""AetherPort for Windows — native desktop UI, dark surfaces and green accents."""
+"""AetherPort for Windows — native desktop UI with Auralis-inspired charcoal and violet styling."""
 from __future__ import annotations
 import json
 import os
@@ -16,16 +16,17 @@ from .core import (VERSION, VariableVault, data_dir, list_archives, delete_archi
 from .google_auth import authorize, DEFAULT_SCOPES
 from .updates import find_windows_update, download_installer, launch_installer
 
-BG = '#050808'
-SURFACE = '#101a17'
-SURFACE2 = '#1d2a25'
-FIELD = '#15201c'
-GREEN = '#6ce4b7'
-GREEN_DIM = '#2c6655'
-TEXT = '#e1efe9'
-MUTED = '#a5b7b0'
-ERROR = '#ff8c88'
-BORDER = '#456057'
+BG = '#111015'
+SURFACE = '#19171e'
+SURFACE2 = '#2b2438'
+SIDEBAR = '#17151b'
+FIELD = '#211e28'
+ACCENT = '#c7b5ff'
+SELECTED = '#332b45'
+TEXT = '#e9e5ef'
+MUTED = '#aaa4b5'
+ERROR = '#ffb4c8'
+BORDER = '#302b39'
 FONT = 'Segoe UI'
 
 
@@ -34,23 +35,83 @@ def asset_path(path):
     return root / 'assets' / path
 
 
-class Button(tk.Button):
+def rounded_surface(canvas, width, height, radius, fill, outline=''):
+    """Draw only the shell; native controls retain keyboard and focus behavior."""
+    radius = min(radius, width / 2, height / 2)
+    canvas.delete('shell')
+    canvas.create_polygon(
+        radius, 1, width-radius, 1, width-1, 1, width-1, radius,
+        width-1, height-radius, width-1, height-1, width-radius, height-1,
+        radius, height-1, 1, height-1, 1, height-radius, 1, radius, 1, 1,
+        smooth=True, splinesteps=24, fill=fill, outline=outline, tags='shell')
+
+
+class RoundedPanel(tk.Frame):
+    def __init__(self, parent, color=SURFACE, radius=28, padding=22):
+        super().__init__(parent, bg=parent.cget('bg'))
+        canvas = tk.Canvas(self, bg=parent.cget('bg'), highlightthickness=0, bd=0)
+        canvas.place(relwidth=1, relheight=1)
+        self.body = tk.Frame(self, bg=color)
+        self.body.pack(fill='both', expand=True, padx=padding, pady=padding)
+        self.bind('<Configure>', lambda e: rounded_surface(canvas, e.width, e.height, radius, color))
+
+
+class Button(tk.Frame):
     def __init__(self, parent, text, command, primary=False, **kwargs):
-        super().__init__(parent, text=text, command=command, bg=GREEN if primary else SURFACE2,
-                         fg='#102b22' if primary else TEXT, activebackground='#a0ffdc' if primary else GREEN_DIM,
-                         activeforeground='#122d22' if primary else TEXT, disabledforeground='#71857d',
+        super().__init__(parent, bg=parent.cget('bg'))
+        self._fill = ACCENT if primary else FIELD
+        self._hover_fill = '#d9ccff' if primary else SELECTED
+        self._hovered = False
+        self._canvas = tk.Canvas(self, bg=parent.cget('bg'), highlightthickness=0, bd=0)
+        self._canvas.place(relwidth=1, relheight=1)
+        self._button = tk.Button(self, text=text, command=command, bg=self._fill,
+                         fg='#302347' if primary else TEXT, activebackground=self._hover_fill,
+                         activeforeground='#302347' if primary else TEXT, disabledforeground='#756f80',
                          borderwidth=0, relief='flat', cursor='hand2', font=(FONT, 11, 'bold'),
-                         padx=18, pady=11, **kwargs)
+                         highlightthickness=0, padx=8, pady=9, takefocus=True, **kwargs)
+        self._button.pack(fill='both', expand=True, padx=12, pady=3)
+        self.bind('<Configure>', lambda e: self._paint())
+        for event in ('<FocusIn>', '<FocusOut>'):
+            self._button.bind(event, lambda e: self._paint(), add='+')
+        self._button.bind('<Enter>', lambda e: self._hover(True), add='+')
+        self._button.bind('<Leave>', lambda e: self._hover(False), add='+')
+        self._canvas.bind('<Button-1>', lambda e: self._button.invoke())
+        self._canvas.bind('<Enter>', lambda e: self._hover(True))
+        self._canvas.bind('<Leave>', lambda e: self._hover(False))
+
+    def _hover(self, active):
+        self._hovered = active
+        self._paint()
+
+    def _paint(self):
+        enabled = self._button.cget('state') != 'disabled'
+        fill = self._hover_fill if self._hovered and enabled else self._fill
+        self._button.configure(bg=fill)
+        rounded_surface(self._canvas, self.winfo_width(), self.winfo_height(), 18, fill,
+                        ACCENT if self._button.focus_get() == self._button else '')
+
+    def configure(self, **kwargs):
+        if 'bg' in kwargs:
+            self._fill = kwargs.pop('bg')
+        result = self._button.configure(**kwargs)
+        self._paint()
+        return result
+
+    config = configure
 
 
-class Field(tk.Entry):
+class Field(RoundedPanel):
     def __init__(self, parent, textvariable=None, secret=False, **kwargs):
-        super().__init__(parent, textvariable=textvariable, show='•' if secret else '',
-                         bg=FIELD, fg=TEXT, insertbackground=GREEN,
-                         disabledbackground=SURFACE2, disabledforeground=MUTED,
-                         highlightbackground=BORDER, highlightcolor=GREEN, highlightthickness=1,
-                         borderwidth=0, relief='flat', font=(FONT, 12), **kwargs)
-        self.configure(width=48)
+        super().__init__(parent, color=FIELD, radius=14, padding=12)
+        self.entry = tk.Entry(self.body, textvariable=textvariable, show='•' if secret else '',
+                         bg=FIELD, fg=TEXT, insertbackground=ACCENT,
+                         disabledbackground=FIELD, disabledforeground=MUTED,
+                         highlightthickness=0, borderwidth=0, relief='flat',
+                         font=(FONT, 12), width=28, **kwargs)
+        self.entry.pack(fill='x', expand=True)
+
+    def focus_set(self):
+        self.entry.focus_set()
 
 
 class ScrollBox(tk.Frame):
@@ -58,7 +119,7 @@ class ScrollBox(tk.Frame):
         super().__init__(master, bg=BG, **kwargs)
         canvas = tk.Canvas(self, bg=BG, bd=0, highlightthickness=0, height=height or 400)
         scrollbar = tk.Scrollbar(self, command=canvas.yview, troughcolor=BG, bg=SURFACE2,
-                                 activebackground=GREEN_DIM)
+                                 activebackground=SELECTED)
         canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
@@ -97,9 +158,12 @@ class Modal(tk.Toplevel):
 
 
 def label(parent, text, size=11, bold=False, color=TEXT, bg=None, wrap=None):
-    return tk.Label(parent, text=text, bg=bg or parent.cget('bg'), fg=color,
+    widget = tk.Label(parent, text=text, bg=bg or parent.cget('bg'), fg=color,
                     font=(FONT,size,'bold' if bold else 'normal'), anchor='w', justify='left',
                     wraplength=wrap or 0)
+    if wrap:
+        widget.bind('<Configure>', lambda e: widget.configure(wraplength=max(100,e.width)))
+    return widget
 
 
 def field_line(parent, title, variable, secret=False):
@@ -107,7 +171,7 @@ def field_line(parent, title, variable, secret=False):
     group.pack(fill='x', pady=9)
     label(group,title,10,color=MUTED).pack(anchor='w',pady=(0,6))
     entry = Field(group, textvariable=variable, secret=secret)
-    entry.pack(fill='x',ipady=9)
+    entry.pack(fill='x')
     return entry
 
 
@@ -124,8 +188,8 @@ class AetherPortWindow(tk.Tk):
         theme = ttk.Style(self)
         theme.theme_use('clam')
         theme.configure('TCombobox', fieldbackground=FIELD, background=SURFACE2,
-                        foreground=TEXT, arrowcolor=GREEN, bordercolor=BORDER,
-                        lightcolor=BORDER, darkcolor=BORDER, selectbackground=GREEN_DIM,
+                        foreground=TEXT, arrowcolor=ACCENT, bordercolor=BORDER,
+                        lightcolor=BORDER, darkcolor=BORDER, selectbackground=SELECTED,
                         selectforeground=TEXT)
         theme.map('TCombobox', fieldbackground=[('readonly',FIELD)],
                   foreground=[('readonly',TEXT)], background=[('readonly',SURFACE2)])
@@ -159,24 +223,27 @@ class AetherPortWindow(tk.Tk):
         temp.replace(self.settings_file)
 
     def _render_shell(self):
-        self.sidebar = tk.Frame(self, bg=SURFACE, width=208)
+        self.sidebar = tk.Frame(self, bg=SIDEBAR, width=202, highlightbackground=BORDER, highlightthickness=1)
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
-        label(self.sidebar,'AetherPort',20,True, bg=SURFACE).pack(anchor='w',padx=22,pady=(33,8))
-        label(self.sidebar, f'WINDOWS  •  v{VERSION}', 9, color=GREEN,bg=SURFACE).pack(anchor='w',padx=22,pady=(0,28))
+        label(self.sidebar,'AetherPort',17,True, bg=SIDEBAR).pack(anchor='w',padx=22,pady=(28,8))
+        label(self.sidebar, 'CREATE. CONNECT. EXPLORE.', 7, color=MUTED,bg=SIDEBAR,wrap=154).pack(anchor='w',padx=22,pady=(0,28))
         self.nav_buttons = {}
         for name in ('GitHub','Hugging Face','Google','Variables','Updates','Settings'):
             button = Button(self.sidebar,name,lambda page=name: self.show_page(page))
-            button.configure(anchor='w', padx=21, pady=13)
+            button.configure(anchor='w', padx=2, pady=13)
             button.pack(fill='x',padx=12,pady=4)
             self.nav_buttons[name]=button
-        label(self.sidebar, 'Private credentials\nStored locally',10,color=MUTED,bg=SURFACE).pack(anchor='w',padx=23,side='bottom',pady=24)
+        label(self.sidebar, f'YOUR TOOLS. YOUR SPACE.\n\nv{VERSION}  ·  Windows',8,color=MUTED,bg=SIDEBAR,wrap=154).pack(anchor='w',padx=23,side='bottom',pady=24)
         right = tk.Frame(self,bg=BG)
         right.pack(side='left',fill='both',expand=True)
         top = tk.Frame(right,bg=BG,padx=33,pady=21)
         top.pack(fill='x')
-        self.page_title = label(top, 'GitHub',23,True)
-        self.page_title.pack(side='left')
+        heading = tk.Frame(top,bg=BG)
+        heading.pack(side='left')
+        label(heading,'YOUR WORKSPACE',8,color=ACCENT).pack(anchor='w',pady=(0,8))
+        self.page_title = label(heading, 'GitHub',28,True)
+        self.page_title.pack(anchor='w')
         self.status = label(top,'',10,color=MUTED)
         self.status.pack(side='right')
         self.main_scroll = ScrollBox(right)
@@ -187,7 +254,7 @@ class AetherPortWindow(tk.Tk):
         self.active_tab=page
         self.page_title.configure(text=page)
         for name,widget in self.nav_buttons.items():
-            widget.configure(bg=GREEN_DIM if name==page else SURFACE2, fg=TEXT)
+            widget.configure(bg=SELECTED if name==page else SIDEBAR, fg=ACCENT if name==page else MUTED)
         for child in self.content.winfo_children(): child.destroy()
         {'GitHub':self._github, 'Hugging Face':self._hf, 'Google':self._google,
          'Variables':self._variables,'Updates':self._updates,'Settings':self._settings}[page]()
@@ -195,18 +262,18 @@ class AetherPortWindow(tk.Tk):
         self.main_scroll.bind_wheel()
 
     def section(self,heading,detail=''):
-        label(self.content,heading,23,True).pack(anchor='w',pady=(9,5))
+        label(self.content,heading,19,True).pack(anchor='w',pady=(9,5))
         if detail: label(self.content,detail,11,color=MUTED,wrap=650).pack(anchor='w',pady=(0,18))
 
     def card(self):
-        box = tk.Frame(self.content,bg=SURFACE,padx=22,pady=22)
-        box.pack(fill='x',pady=8)
-        return box
+        panel = RoundedPanel(self.content)
+        panel.pack(fill='x',pady=8)
+        return panel.body
 
     def _task(self,task,success=None):
         if self.busy: return
         self.busy=True
-        self.status.configure(text='Working…',fg=GREEN)
+        self.status.configure(text='Working…',fg=ACCENT)
         def run():
             try: self.jobs.put((True,task(),success))
             except Exception as exc: self.jobs.put((False,exc,success))
@@ -226,7 +293,7 @@ class AetherPortWindow(tk.Tk):
         self.after(75,self._drain_jobs)
 
     def _progress(self,message):
-        self.after(0,lambda: self.status.configure(text=message[:43],fg=GREEN))
+        self.after(0,lambda: self.status.configure(text=message[:43],fg=ACCENT))
 
     def _archive_field(self,container):
         row=tk.Frame(container,bg=container.cget('bg'))
