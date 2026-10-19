@@ -1,15 +1,15 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.19** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.21** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
-- GitHub publishing: choose a ZIP, click Publish to choose a saved repository and start publishing directly, automatically unwrap one unnecessary outer folder, replace the repository contents, create one commit per added, modified or deleted file as the GitHub token owner, and push to an existing branch.
+- GitHub publishing: choose a ZIP, click Publish to choose a saved repository and start publishing directly, automatically unwrap one unnecessary outer folder, replace the repository contents, create one commit per added, modified or deleted file as the GitHub token owner, and push to the selected branch. Empty repositories are initialized automatically; missing branches are created from the remote default branch without changing that branch.
 - Hugging Face Spaces: publish a ZIP with one commit per changed file, or download a Space into a ZIP. Each commit message includes the filename. Unchanged files are skipped; a rename creates separate deletion and addition commits. All commits are pushed together once.
 - ZIP chooser: newest first, centered scrollable picker, permanent deletion with confirmation. Configurable source folder (defaults to Downloads).
 - Variables: multiple GitHub/HF tokens and saved repositories; encrypted locally using **Windows DPAPI** under the current user account.
 - **Android-compatible `.aetherbackup` import/export**: AES-256-GCM and PBKDF2-HMAC-SHA256 (210,000 rounds), exactly matching Android AetherPort 3.0.14 and later. Existing variables are preserved by default.
-- Google OAuth for desktop using your Google Cloud Desktop `credentials.json`, saving `token.json` and `token.pickle`.
+- WZML-X-compatible Google token generation: Desktop `credentials.json`, Drive + YouTube preset, optional Drive-only/custom permissions, browser sign-in, encrypted token reuse and automatic refresh, and `token.pickle` / `token.json` exports. Use Sign in again to switch Google accounts.
 - Windows update checking/download against the `windows-stable` GitHub release tag and running its installer on user confirmation.
 - Dark UI with AetherPort green and centered modal dialogs.
 
@@ -58,3 +58,7 @@ Default update source is `SiamTest/AetherPort` (editable from Updates). To use a
 `tests/` — offline test suite.
 
 MIT License (matching the supplied Android AetherPort source). Project derived from the AetherPort Android application functionality; the Windows edition contains no E-Hentai sources.
+
+## Google token generator
+
+Enable Google Drive API and YouTube Data API v3 in your Google Cloud project for the WZML-X preset. Configure the consent screen and test users, create a **Desktop app** OAuth client, and download its JSON. In Google, choose the file and permissions, click **Generate token.pickle**, complete browser sign-in, then save the file. Valid saved tokens are reused and expired tokens refresh automatically. Exports are genuine Google credentials objects with access and refresh tokens and UTC expiry. Full instructions are in the root README.
