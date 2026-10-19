@@ -1,4 +1,4 @@
-#define MyAppVersion "3.0.22"
+#define MyAppVersion "3.0.23"
 #define MyAppName "AetherPort"
 #define MyAppPublisher "AetherPort"
 #define MyAppExeName "AetherPort.exe"
