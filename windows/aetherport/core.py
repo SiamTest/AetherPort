@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.19'
+VERSION = '3.0.21'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -441,8 +441,22 @@ def publish_zip(archive: Path, service: str, repo: str, token: str,
         suffix = repo if service == 'github' else 'spaces/' + repo
         user = 'x-access-token' if service == 'github' else repo.split('/')[0]
         url = f'https://{quote(user)}@{host}/{suffix}.git'
-        if progress: progress(f'Cloning {repo}…')
-        _run_git(['clone', '--single-branch', '--branch', branch, '--depth', '1', url, str(work)], tmp, env)
+        if progress: progress(f'Checking branches in {repo}…')
+        refs = _run_git(['ls-remote', '--symref', url, 'HEAD', 'refs/heads/*'], tmp, env).splitlines()
+        heads = {line.split('\t', 1)[1][len('refs/heads/'):] for line in refs
+                 if '\trefs/heads/' in line}
+        default = next((line.split()[1][len('refs/heads/'):] for line in refs
+                        if line.startswith('ref: refs/heads/') and line.endswith('\tHEAD')), None)
+        if heads:
+            base = branch if branch in heads else default if default in heads else sorted(heads)[0]
+            if progress: progress(f'Cloning {repo}:{base}…')
+            _run_git(['clone', '--single-branch', '--branch', base, '--depth', '1', url, str(work)], tmp, env)
+            if branch != base:
+                _run_git(['checkout', '-b', branch], work, env)
+        else:
+            if progress: progress(f'Preparing first commit on {branch}…')
+            _run_git(['init', f'--initial-branch={branch}', str(work)], tmp, env)
+            _run_git(['remote', 'add', 'origin', url], work, env)
         _safe_remove_repo_contents(work)
         if progress: progress('Copying ZIP contents…')
         for item in root.iterdir():
@@ -453,9 +467,15 @@ def publish_zip(archive: Path, service: str, repo: str, token: str,
         changes = _run_git(['diff', '--cached', '--name-status', '--no-renames', '-z'], work, env).split('\0')[:-1]
         files = sorted(zip(changes[::2], changes[1::2]), key=lambda item: (item[0] != 'D', item[1]))
         if not files:
+            if branch not in heads:
+                _run_git(['push', 'origin', f'HEAD:refs/heads/{branch}'], work, env)
+                return f'Created branch {repo}:{branch}. No file changes were needed.'
             return 'No changes found. Nothing was pushed.'
         # Unstage the batch; deletions go first so file/directory replacements remain one path per commit.
-        _run_git(['reset', '--mixed', 'HEAD'], work, env)
+        if heads:
+            _run_git(['reset', '--mixed', 'HEAD'], work, env)
+        else:
+            _run_git(['read-tree', '--empty'], work, env)
         for number, (status, path) in enumerate(files, 1):
             if progress: progress(f'Creating commit {number}/{len(files)}: {path}')
             literal = ':(literal)' + path
