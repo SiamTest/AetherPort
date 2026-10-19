@@ -15,6 +15,24 @@ WZML_SCOPES = (
 DEFAULT_SCOPES = ' '.join(WZML_SCOPES)
 
 
+def portable_credentials_pickle(credentials) -> bytes:
+    """Export credential data without newer google-auth's private runtime objects."""
+    from google.oauth2.credentials import Credentials
+    portable = Credentials.__new__(Credentials)
+    portable.__dict__.update({
+        'token': credentials.token, 'expiry': credentials.expiry,
+        '_refresh_token': credentials.refresh_token, '_id_token': credentials.id_token,
+        '_scopes': list(credentials.scopes or ()), '_default_scopes': None,
+        '_granted_scopes': list(credentials.granted_scopes) if credentials.granted_scopes is not None else None,
+        '_token_uri': credentials.token_uri, '_client_id': credentials.client_id,
+        '_client_secret': credentials.client_secret, '_quota_project_id': None,
+        '_rapt_token': None, '_enable_reauth_refresh': False, '_trust_boundary': None,
+        '_universe_domain': 'googleapis.com', '_cred_file_path': None,
+        '_use_non_blocking_refresh': False, '_account': getattr(credentials, 'account', ''),
+    })
+    return pickle.dumps(portable, protocol=3)
+
+
 def authorize(credentials_file: Path, scopes_text: str = DEFAULT_SCOPES,
               force_new: bool = False, cache: VariableVault | None = None):
     try:
@@ -69,4 +87,4 @@ def authorize(credentials_file: Path, scopes_text: str = DEFAULT_SCOPES,
     if not set(scopes).issubset(granted or ()):
         raise ValueError('Some requested permissions were not approved. Sign in again and allow the selected permissions.')
     cache.put(key, credentials.to_json())
-    return credentials.to_json().encode('utf-8'), pickle.dumps(credentials, protocol=4)
+    return credentials.to_json().encode('utf-8'), portable_credentials_pickle(credentials)
