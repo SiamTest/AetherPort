@@ -53,25 +53,27 @@ def test_publish_replaces_repository_tree_without_force_push(monkeypatch,tmp_pat
 
 @pytest.fixture
 def local_publish(monkeypatch, tmp_path):
-    def setup(seed_files, service):
+    def setup(seed_files, service, initial_branch='main'):
         bare = tmp_path/'hosting'/'ExampleOwner'/'ExampleProject.git'
         bare.parent.mkdir(parents=True)
-        git(['init', '--bare', '--initial-branch=main', str(bare)], tmp_path)
+        git(['init', '--bare', f'--initial-branch={initial_branch}', str(bare)], tmp_path)
         git(['--git-dir', str(bare), 'config', 'core.longpaths', 'true'], tmp_path)
         seed = tmp_path/'seed'
         seed.mkdir()
-        git(['init', '--initial-branch=main'], seed)
+        git(['init', f'--initial-branch={initial_branch}'], seed)
         git(['config', 'user.name', 'Initial author'], seed)
         git(['config', 'user.email', 'initial@example.com'], seed)
         for path, content in seed_files.items():
             file = seed/path
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text(content, encoding='utf-8')
-        git(['add', '-A'], seed)
-        git(['commit', '-m', 'Initial'], seed)
-        initial = git(['rev-parse', 'HEAD'], seed)
-        git(['remote', 'add', 'origin', str(bare)], seed)
-        git(['push', 'origin', 'main'], seed)
+        initial = None
+        if seed_files:
+            git(['add', '-A'], seed)
+            git(['commit', '-m', 'Initial'], seed)
+            initial = git(['rev-parse', 'HEAD'], seed)
+            git(['remote', 'add', 'origin', str(bare)], seed)
+            git(['push', 'origin', initial_branch], seed)
         location = (tmp_path/'hosting').resolve().as_posix()
         prefix = ('file:///' if os.name == 'nt' else 'file://') + location + '/'
         original_env = core._git_environment
@@ -152,3 +154,58 @@ def test_commit_failure_does_not_push_a_partial_batch(local_publish, monkeypatch
         core.publish_zip(archive, 'github', 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
     assert git(['--git-dir', str(bare), 'rev-parse', 'main'], tmp_path) == initial
     assert archive.is_file()
+
+
+@pytest.mark.parametrize('service', ['github', 'hf'])
+@pytest.mark.parametrize('initial_branch', ['main', 'master'])
+def test_empty_repository_publishes_first_single_file_commits(local_publish, tmp_path, service, initial_branch):
+    bare, initial = local_publish({}, service, initial_branch)
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {'README.md': 'new', 'src/app.py': 'app'})
+    result = core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert 'Published 2 file commits' in result
+    commits = git(['--git-dir', str(bare), 'rev-list', '--reverse', 'main'], tmp_path).splitlines()
+    assert len(commits) == 2
+    for commit in commits:
+        paths = git(['--git-dir', str(bare), 'diff-tree', '--root', '--no-commit-id',
+                     '--name-only', '-r', '-z', commit], tmp_path).split('\0')[:-1]
+        assert len(paths) == 1
+        identity = git(['--git-dir', str(bare), 'show', '-s', '--format=%an|%ae', commit], tmp_path)
+        assert identity == 'Token Owner|123+owner@users.noreply.github.com'
+    assert git(['--git-dir', str(bare), 'show', 'main:README.md'], tmp_path) == 'new'
+    assert 'No changes found' in core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+
+
+@pytest.mark.parametrize('service', ['github', 'hf'])
+@pytest.mark.parametrize('changed', [False, True])
+def test_missing_branch_preserves_default_branch_and_its_history(local_publish, tmp_path, service, changed):
+    bare, initial = local_publish({'README.md': 'old'}, service, 'master')
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {'README.md': 'new' if changed else 'old'})
+    core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert git(['--git-dir', str(bare), 'rev-parse', 'master'], tmp_path) == initial
+    assert git(['--git-dir', str(bare), 'show', 'master:README.md'], tmp_path) == 'old'
+    git(['--git-dir', str(bare), 'merge-base', '--is-ancestor', initial, 'main'], tmp_path)
+    assert git(['--git-dir', str(bare), 'show', 'main:README.md'], tmp_path) == ('new' if changed else 'old')
+
+
+@pytest.mark.parametrize('empty', [False, True])
+def test_failed_new_branch_batch_does_not_create_a_remote_branch(local_publish, monkeypatch, tmp_path, empty):
+    bare, initial = local_publish({} if empty else {'a.txt': 'old'}, 'github', 'master')
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {'a.txt': 'new', 'b.txt': 'new'})
+    original_run = core._run_git
+    attempts = 0
+    def fail_second_commit(args, *rest):
+        nonlocal attempts
+        if 'commit' in args:
+            attempts += 1
+            if attempts == 2:
+                raise RuntimeError('Simulated commit failure')
+        return original_run(args, *rest)
+    monkeypatch.setattr(core, '_run_git', fail_second_commit)
+    with pytest.raises(RuntimeError, match='Simulated commit failure'):
+        core.publish_zip(archive, 'github', 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert not git(['--git-dir', str(bare), 'branch', '--list', 'main'], tmp_path)
+    if initial:
+        assert git(['--git-dir', str(bare), 'rev-parse', 'master'], tmp_path) == initial
