@@ -1,5 +1,6 @@
 package com.forgeport.android.ui
 
+import com.forgeport.android.ui.theme.AetherPortTextField as OutlinedTextField
 import com.forgeport.android.ui.theme.ExpressiveButton as Button
 import com.forgeport.android.ui.theme.ExpressiveTonalButton as FilledTonalButton
 import com.forgeport.android.ui.theme.ExpressiveOutlinedButton as OutlinedButton
@@ -76,7 +77,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -205,33 +206,37 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
             drawerState = drawerState,
             gesturesEnabled = drawerState.isOpen && !readerRoute,
             drawerContent = {
-                ModalDrawerSheet(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ModalDrawerSheet(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    drawerShape = MaterialTheme.shapes.extraLarge,
+                ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Surface(
                             modifier = Modifier.size(52.dp),
                             shape = MaterialTheme.shapes.large,
-                            color = Color.Black,
+                            color = MaterialTheme.colorScheme.primaryContainer,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_aetherport_mark),
                                     contentDescription = null,
                                     modifier = Modifier.size(34.dp),
-                                    tint = Color.Unspecified,
+                                    tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
                         Column(Modifier.weight(1f)) {
                             Text("AetherPort", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Create. Connect. Explore.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("CREATE. CONNECT. EXPLORE.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    HorizontalDivider()
-                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(16.dp))
                     destinations.forEach { item ->
                         NavigationDrawerItem(
                             icon = { Icon(item.icon, contentDescription = null) },
@@ -247,7 +252,14 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
                                 }
                             },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
-                            shape = MaterialTheme.shapes.large,
+                            shape = MaterialTheme.shapes.medium,
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         )
                     }
                     Spacer(Modifier.height(20.dp))
@@ -269,7 +281,7 @@ fun AetherPortApp(vm: AetherPortViewModel = viewModel(), galleryLibraryRequest: 
                                 }
                             },
                             actions = { if (!galleryRoute) IconButton(onClick = { settings = true }, enabled = !vm.busy) { Icon(Icons.Filled.Settings, "Settings") } },
-                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                         )
                     }
                 },
@@ -427,7 +439,7 @@ private fun ScreenColumn(vm: AetherPortViewModel, content: @Composable ColumnSco
     AdaptiveContent {
         Column(
             Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // No confirmation card on success. This panel is reserved for failures.
             vm.statusMessage?.let { failure ->
@@ -452,7 +464,8 @@ private fun ScreenColumn(vm: AetherPortViewModel, content: @Composable ColumnSco
 
 @Composable
 private fun SectionHeader(title: String, description: String? = null, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("YOUR WORKSPACE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
