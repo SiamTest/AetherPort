@@ -349,8 +349,8 @@ print('saved repositories and ZIP-folder publishing: OK')
 components = (root / 'app/src/main/java/com/forgeport/android/ui/theme/ExpressiveComponents.kt').read_text()
 theme = (root / 'app/src/main/java/com/forgeport/android/ui/theme/Theme.kt').read_text()
 assert 'typography = AetherPortTypography' in theme
-assert 'bottomStart = 12.dp' in theme
-for marker in ['collectIsPressedAsState()', 'RoundedCornerShape(corner.roundToInt()', 'ExpressiveMotion.spatial()', 'verticalScroll(rememberScrollState())', 'heightIn(min = 56.dp)']:
+assert 'medium = RoundedCornerShape(18.dp)' in theme
+for marker in ['collectIsPressedAsState()', 'RoundedCornerShape(corner.roundToInt()', 'ExpressiveMotion.spatial()', 'verticalScroll(rememberScrollState())', 'heightIn(min = 48.dp)']:
     assert marker in components, marker
 for marker in ['popEnterTransition', 'AnimatedContent(', 'imePadding()', 'AdaptiveContent {']:
     assert marker in ui, marker
