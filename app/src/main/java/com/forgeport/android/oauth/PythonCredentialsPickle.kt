@@ -3,13 +3,14 @@ package com.forgeport.android.oauth
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.time.Instant
+import java.time.ZoneOffset
 
 /**
  * Writes a small Python pickle which reconstructs google.oauth2.credentials.Credentials.
  *
- * The access token is intentionally stored as None. On first authenticated request,
- * google-auth sees invalid credentials and refreshes them with the refresh token. This
- * avoids baking a one-hour access-token lifetime into the exported token.pickle.
+ * Includes the current access token and UTC expiry when available, matching
+ * pickle.dump(google.oauth2.credentials.Credentials). Refresh-only callers are supported.
  */
 object PythonCredentialsPickle {
     private const val TOKEN_URI = "https://oauth2.googleapis.com/token"
@@ -19,21 +20,25 @@ object PythonCredentialsPickle {
         clientId: String,
         clientSecret: String,
         scopes: List<String>,
+        accessToken: String? = null,
+        expiry: Instant? = null,
     ): ByteArray {
         require(refreshToken.isNotBlank()) { "Google did not issue a refresh token." }
         require(clientId.isNotBlank()) { "Google OAuth client ID is required." }
         require(clientSecret.isNotBlank()) { "Google OAuth client secret is required." }
+        require((accessToken == null) == (expiry == null)) { "Access token and expiry must be provided together." }
+        require(accessToken == null || accessToken.isNotBlank()) { "Google access token is empty." }
 
         val out = ByteArrayOutputStream()
-        out.write(byteArrayOf(0x80.toByte(), 0x02)) // PROTO 2
+        out.write(byteArrayOf(0x80.toByte(), 0x03)) // PROTO 3 (Python 3)
         out.write("cgoogle.oauth2.credentials\nCredentials\n".toByteArray(Charsets.UTF_8)) // GLOBAL
         out.write(')'.code) // EMPTY_TUPLE
         out.write(0x81) // NEWOBJ
         out.write('}'.code) // EMPTY_DICT
         out.write('('.code) // MARK
 
-        putKey(out, "token"); putNone(out)
-        putKey(out, "expiry"); putNone(out)
+        putKey(out, "token"); if (accessToken == null) putNone(out) else putString(out, accessToken)
+        putKey(out, "expiry"); if (expiry == null) putNone(out) else putDateTime(out, expiry)
         putKey(out, "_refresh_token"); putString(out, refreshToken)
         putKey(out, "_id_token"); putNone(out)
         putKey(out, "_scopes"); putStringList(out, scopes)
@@ -58,6 +63,18 @@ object PythonCredentialsPickle {
     }
 
     private fun putKey(out: ByteArrayOutputStream, value: String) = putString(out, value)
+
+    private fun putDateTime(out: ByteArrayOutputStream, value: Instant) {
+        val utc = value.atOffset(ZoneOffset.UTC)
+        val micros = utc.nano / 1000
+        val data = ByteBuffer.allocate(10).order(ByteOrder.BIG_ENDIAN)
+            .putShort(utc.year.toShort()).put(utc.monthValue.toByte()).put(utc.dayOfMonth.toByte())
+            .put(utc.hour.toByte()).put(utc.minute.toByte()).put(utc.second.toByte())
+            .put((micros shr 16).toByte()).put((micros shr 8).toByte()).put(micros.toByte()).array()
+        out.write("cdatetime\ndatetime\n".toByteArray(Charsets.US_ASCII))
+        out.write('C'.code); out.write(data.size); out.write(data)
+        out.write(0x85); out.write('R'.code) // TUPLE1, REDUCE
+    }
 
     private fun putString(out: ByteArrayOutputStream, value: String) {
         val bytes = value.toByteArray(Charsets.UTF_8)
