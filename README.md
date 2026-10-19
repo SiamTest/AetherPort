@@ -1,6 +1,6 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.22** and **Windows 3.0.21**.
+This combined source project contains **Android 3.0.22** and **Windows 3.0.22**.
 Both platforms publish ZIPs with one commit per changed file. Android retains faster gallery thumbnails; Windows retains its saved repository chooser.
 
 - Android source remains at the repository root (`app/`, Gradle files and `tools/`).
@@ -244,6 +244,8 @@ The generator on Android and Windows produces a Python `google.oauth2.credential
 3. Choose **WZML-X** (Drive plus YouTube), **Drive only**, or **Custom** permissions.
 4. Tap **Generate token.pickle**. A valid saved token is reused; an expired token refreshes automatically. Otherwise, complete sign-in and approve the selected permissions in the system browser. Both the browser and AetherPort must run on the same device for the local callback.
 5. Save **token.pickle** for WZML-X or export **token.json**. The pickle includes the current access token, UTC expiry, refresh token, client ID/secret, and scopes. Google-auth can refresh it after the access token expires.
+
+Exported pickles contain portable credential data rather than private Google-auth runtime objects. This avoids errors such as `No module named google.auth._regional_access_boundary_utils` when a bot uses an older Google-auth release. If you exported a Windows token before version 3.0.22, generate and save a fresh `token.pickle` with the updated app, then replace the bot's old file. Saved credentials are reused, so a new sign-in is usually unnecessary.
 
 The WZML-X preset requests `drive`, `youtube.upload`, `youtube.readonly`, and `youtube.force-ssl` under `https://www.googleapis.com/auth/`. Choose **Sign in again** to select a different Google account or replace a revoked grant. New credentials replace the saved entry only after successful authorization with all selected permissions.
 
