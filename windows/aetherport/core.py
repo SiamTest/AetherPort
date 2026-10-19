@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.22'
+VERSION = '3.0.23'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
