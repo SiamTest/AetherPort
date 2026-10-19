@@ -1,3 +1,42 @@
+## Android 3.0.22 / Windows 3.0.21 — WZML-X Google token generator
+
+- Rework Google token generation with WZML-X Drive and YouTube scopes, Drive-only and custom presets, Desktop client file selection and a separate Generate action.
+- Reuse valid encrypted cached credentials; refresh expired tokens or explicitly sign in again. Preserve saved tokens when authorization fails.
+- Export complete Python Google credentials with access token, UTC expiry and refresh credentials; retain token.json export.
+- Validate Google endpoints and callback state, ignore unrelated callback requests, and use browser OAuth with PKCE without the obsolete console fallback.
+- Add offline OAuth lifecycle and callback tests and real Python unpickle/refresh compatibility checks for the Android serializer.
+
+## Android 3.0.21 — Stable reader image sizing
+
+- Keep the reader viewport full-screen while opening galleries or showing and hiding controls, preventing fit-to-screen images from appearing to zoom automatically.
+- Overlay reader controls instead of resizing the image area; exclude system-bar insets from the immersive reader.
+- Initialize zoom and pan separately for each gallery. Manual pinch and double-tap zoom remain available.
+- Windows remains at 3.0.20.
+
+## Android 3.0.20 — Long-press gallery reader
+
+- Long-press a cover on the E-Hentai browse page to open the image reader directly, starting at the first page. Works in grid and list views, including Popular, Latest and search results.
+- A normal tap continues to open gallery details.
+- Windows remains at 3.0.20.
+
+## Android 3.0.19 — Instant gallery auto-advance
+
+- Switch automatic gallery pages and vertical scroll steps immediately, without a swipe animation.
+- Preserve the configured timer, image loading checks, pause behavior and manual navigation.
+- Windows remains at 3.0.20.
+
+## Android 3.0.18 — Menu button drawer opening
+
+- Open the navigation drawer only from the three-line menu button. Swiping across a screen no longer opens it.
+- Keep swipe-to-close available after opening the drawer.
+- Windows remains at 3.0.20, including the publishing branch fix.
+
+## Windows 3.0.20 — Publishing branch fix
+
+- Publish to empty repositories and create missing branches from the remote default branch.
+- Preserve per-file commits, account attribution, branch history and non-force pushes.
+- Android remains at 3.0.17.
+
 ## Windows 3.0.19 — Hidden Git operations
 
 - Run Git commands without terminal pop-ups during publishing and Hugging Face downloads, retaining per-file commits and the direct-publish flow.
