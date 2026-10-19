@@ -192,7 +192,7 @@ assert 'Destination("ehentai", "E-Hentai", Icons.Filled.Public)' in ui
 assert 'GalleryCatalogScreen(galleryVm' in ui
 assert '!readerRoute && !nativeGalleryRoute' in ui
 assert 'GalleryColorScheme' not in ui, 'Gallery must use the same AetherPort Material 3 theme.'
-for marker in ['GalleryDetailsScreen(', 'GalleryReaderScreen(', 'GalleryLibraryScreen(', 'Uri.encode(url)', 'gesturesEnabled = !readerRoute']:
+for marker in ['GalleryDetailsScreen(', 'GalleryReaderScreen(', 'GalleryLibraryScreen(', 'Uri.encode(url)', 'gesturesEnabled = drawerState.isOpen && !readerRoute']:
     assert marker in ui, marker
 browser = (root / 'app/src/main/java/com/forgeport/android/ui/EhentaiScreen.kt').read_text()
 for marker in [
@@ -317,7 +317,7 @@ for marker in ['Text("Download gallery")', 'valueRange = 1f..100f', 'confirmedPe
 assert 'vm.download(gallery)' not in screens
 assert 'repository.downloadPercent(gallery)' in service
 assert 'repository.download(gallery, percent)' in service
-for marker in ['Text("Auto-scroll")', 'valueRange = 1f..60f', 'Lifecycle.State.RESUMED', 'readyPages[current] != true', 'animateScrollBy(viewport * 0.85f, animationSpec = ExpressiveMotion.spatial())', 'pager.animateScrollToPage(current + 1, animationSpec = ExpressiveMotion.spatial())', 'Pause auto-scroll', 'zoomed || settings || autoScrollDialog']:
+for marker in ['Text("Auto-scroll")', 'valueRange = 1f..60f', 'Lifecycle.State.RESUMED', 'readyPages[current] != true', 'scrollBy(viewport * 0.85f)', 'pager.scrollToPage(current + 1)', 'Pause auto-scroll', 'zoomed || settings || autoScrollDialog']:
     assert marker in reader, marker
 print("account attribution and gallery controls: OK")
 
