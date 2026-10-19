@@ -30,7 +30,7 @@ private fun ExpressiveComponentsPreview() {
                         }
                     }
                     var value by remember { mutableStateOf("main") }
-                    OutlinedTextField(value, { value = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
+                    AetherPortTextField(value, { value = it }, label = { Text("Branch") }, modifier = Modifier.fillMaxWidth())
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExpressiveFilterChip(true, {}, { Text("Publish") })
                         ExpressiveFilterChip(false, {}, { Text("Projects") })
