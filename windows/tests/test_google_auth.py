@@ -1,6 +1,7 @@
 """Local OAuth tests: mock Google/browser; export real google-auth credentials."""
 import json
 import pickle
+import io
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 import pytest
@@ -45,6 +46,25 @@ def test_wzml_export_and_saved_token_reuse(setup):
     google_auth.authorize(path,cache=cache)
     assert factory.call_count==1
     assert b'refresh-test' not in cache.file.read_bytes()
+
+
+def test_export_avoids_private_google_runtime_objects_and_preserves_original():
+    original = credentials()
+    original._future_runtime_object = lambda: None
+    before = dict(original.__dict__)
+    blob = google_auth.portable_credentials_pickle(original)
+    assert b'_regional_access_boundary_utils' not in blob
+    class PortableOnly(pickle.Unpickler):
+        def find_class(self, module, name):
+            assert (module, name) in {
+                ('google.oauth2.credentials', 'Credentials'), ('datetime', 'datetime')}
+            return super().find_class(module, name)
+    loaded = PortableOnly(io.BytesIO(blob)).load()
+    assert isinstance(loaded, Credentials) and loaded.valid
+    assert loaded.token == original.token and loaded.expiry == original.expiry
+    assert loaded.refresh_token == original.refresh_token
+    assert set(loaded.scopes) == set(original.scopes)
+    assert original.__dict__ == before
 
 
 def test_expired_token_refreshes_without_browser(setup,monkeypatch):
