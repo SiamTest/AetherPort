@@ -18,7 +18,9 @@ import androidx.compose.animation.fadeOut
 import com.forgeport.android.ui.theme.ExpressiveMotion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,11 +60,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun GalleryCatalogScreen(
     vm: GalleryViewModel, back: () -> Unit, open: (String) -> Unit,
     website: (String) -> Unit, library: () -> Unit, downloads: () -> Unit,
+    read: (String, Int) -> Unit,
 ) {
     val state = vm.catalog
     var searchOpen by rememberSaveable { mutableStateOf(false) }
@@ -156,7 +159,10 @@ internal fun GalleryCatalogScreen(
                                 ElevatedCard(
                                     onClick = { open(item.url) }, modifier = Modifier.fillMaxWidth(),
                                 ) {
-                                    GalleryCover(vm.repository, item.cover, item.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small))
+                                    GalleryCover(vm.repository, item.cover, item.title,
+                                        Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small)
+                                            .combinedClickable(onClick = { open(item.url) }, onLongClickLabel = "Read gallery",
+                                                onLongClick = { read(item.url, 0) }))
                                     Text(item.title, Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                 }
                             }
@@ -169,7 +175,10 @@ internal fun GalleryCatalogScreen(
                             items(state.items, key = { it.url }) { item ->
                                 ElevatedCard(onClick = { open(item.url) }, modifier = Modifier.fillMaxWidth()) {
                                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        GalleryCover(vm.repository, item.cover, item.title, Modifier.width(82.dp).height(123.dp).clip(MaterialTheme.shapes.small))
+                                        GalleryCover(vm.repository, item.cover, item.title,
+                                            Modifier.width(82.dp).height(123.dp).clip(MaterialTheme.shapes.small)
+                                                .combinedClickable(onClick = { open(item.url) }, onLongClickLabel = "Read gallery",
+                                                    onLongClick = { read(item.url, 0) }))
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
                                             Text(item.category, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
