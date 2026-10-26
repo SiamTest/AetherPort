@@ -82,6 +82,23 @@ def test_publish_setup_does_not_open_chooser(controls, tmp_path, state):
     window._repository_dialog.assert_not_called()
 
 
+def test_check_token_reads_selected_secret_without_a_zip_or_publish(controls, monkeypatch):
+    buttons, _ = controls
+    window = SimpleNamespace(card=lambda: Widget(), _archive_field=lambda box: None,
+                             busy=False, vault=SimpleNamespace(hf_tokens=lambda: ['HF_TOKEN'],
+                             all=lambda: {'HF_TOKEN': 'dummy-secret'}), _task=Mock())
+    lookup = Mock(return_value='Account: @ExampleOwner')
+    monkeypatch.setattr(app, 'huggingface_token_status', lookup)
+    monkeypatch.setattr(app.messagebox, 'showinfo', Mock())
+    app.AetherPortWindow._publish_ui(window, hf=True)
+    buttons['Check token']()
+    task, done = window._task.call_args.args
+    report = task()
+    lookup.assert_called_once_with('dummy-secret')
+    done(report)
+    app.messagebox.showinfo.assert_called_once_with('Hugging Face token account', report, parent=window)
+
+
 @pytest.mark.parametrize('hf', [False, True])
 @pytest.mark.parametrize('repositories', [[], ['Example/Project', 'Example/Other']])
 def test_repository_chooser_select_cancel_and_manage(controls, monkeypatch, hf, repositories):
