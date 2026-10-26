@@ -4,7 +4,25 @@ import subprocess
 from pathlib import Path
 from zipfile import ZipFile
 import pytest
+from types import SimpleNamespace
 from aetherport import core
+
+
+def test_hf_hidden_profile_email_credits_token_owner_in_actual_git_commits(local_publish, monkeypatch, tmp_path):
+    identity = core._identity
+    bare, _ = local_publish({'README.md': 'old'}, 'hf')
+    monkeypatch.setattr(core, '_identity', identity)
+    profile = {'type': 'user', 'name': 'ActualOwner', 'fullname': 'Token Owner',
+               'auth': {'accessToken': {'role': 'fineGrained'}}}
+    response = SimpleNamespace(status_code=200, raise_for_status=lambda: None, json=lambda: profile)
+    monkeypatch.setattr(core.requests, 'get', lambda *args, **kwargs: response)
+    archive = tmp_path/'project.zip'
+    write_archive(archive, {'README.md': 'new'})
+    result = core.publish_zip(archive, 'hf', 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update')
+    assert 'Published 1 file commits' in result
+    author = git(['--git-dir', str(bare), 'show', '-s', '--format=%an|%ae|%cn|%ce', 'main'], tmp_path)
+    assert author == ('Token Owner|ActualOwner@users.noreply.huggingface.co|'
+                      'Token Owner|ActualOwner@users.noreply.huggingface.co')
 
 
 def git(args, cwd, env=None):
