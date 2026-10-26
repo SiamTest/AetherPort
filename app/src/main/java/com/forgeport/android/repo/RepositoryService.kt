@@ -181,7 +181,7 @@ class RepositoryService(
             "Hugging Face returned an invalid email verification status."
         }
         return CommitIdentity.huggingFace(user.optString("name"), user.optString("fullname").takeUnless { it == "null" }.orEmpty(),
-            user.optString("email"), verified as? Boolean)
+            if (user.isNull("email")) "" else user.optString("email"), verified as? Boolean)
     }
 
     private fun accountProfile(url: String, token: String, service: String): JSONObject {
