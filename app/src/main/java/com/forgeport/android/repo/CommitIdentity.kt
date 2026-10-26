@@ -12,10 +12,13 @@ internal data class CommitIdentity(val name: String, val email: String) {
             require(username.matches(Regex("[A-Za-z0-9_-]+"))) { "Hugging Face did not return a valid account identity." }
             // Missing metadata is unknown; only an explicit false is unverified.
             require(verified != false) { "Hugging Face reports an unverified account email." }
-            require(email.matches(Regex("[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+"))) {
+            // Hub supports this address for profile-linked commits when email is hidden.
+            // https://github.com/huggingface/hub-docs/issues/259
+            val commitEmail = if (email.isEmpty()) "$username@users.noreply.huggingface.co" else email
+            require(commitEmail.matches(Regex("[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+"))) {
                 "Hugging Face did not return a usable commit email for @$username."
             }
-            return CommitIdentity(cleanName(displayName, username), email)
+            return CommitIdentity(cleanName(displayName, username), commitEmail)
         }
 
         private fun cleanName(displayName: String, fallback: String): String = displayName
