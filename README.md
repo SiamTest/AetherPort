@@ -1,9 +1,11 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.23** and **Windows 3.0.23**.
+This combined source project contains **Android 3.0.23** and **Windows 3.0.24**.
 The interface follows [Auralis](https://github.com/SiamTest/Auralis): charcoal backgrounds, violet accents, rounded filled controls and compact navigation. AetherPort keeps its own branding and features.
 
-Validation for this update: 54 Windows tests and native Tk page/button checks pass. The Android shared theme, controls and drawer APIs compile against Compose 1.8.1 / Material 3 1.3.2. The full Android unit-test/lint/APK run was blocked by HTTP 403 responses while resolving build dependencies; no complete APK build or Android device check is claimed.
+Validation for the v3.0.23 interface update: 54 Windows tests and native Tk page/button checks pass. The Android shared theme, controls and drawer APIs compile against Compose 1.8.1 / Material 3 1.3.2. The full Android unit-test/lint/APK run was blocked by HTTP 403 responses while resolving build dependencies; no complete APK build or Android device check is claimed.
+
+Windows 3.0.24 adds **Hugging Face → Check token**, showing the saved token’s account, role, email verification status and whether commit email data is present. It never displays the token or email value. Publishing errors now distinguish rejected tokens, missing account data and an explicitly unverified account. This is a diagnostic update; live token rejection has not been reproduced. All 62 offline Windows tests and the source/release checks pass. No Windows installer was built in this environment.
 
 Both platforms publish ZIPs with one commit per changed file. Android retains faster gallery thumbnails; Windows retains its saved repository chooser.
 
@@ -470,7 +472,7 @@ The generator on Android and Windows produces a Python `google.oauth2.credential
 4. Tap **Generate token.pickle**. A valid saved token is reused; an expired token refreshes automatically. Otherwise, complete sign-in and approve the selected permissions in the system browser. Both the browser and AetherPort must run on the same device for the local callback.
 5. Save **token.pickle** for WZML-X or export **token.json**. The pickle includes the current access token, UTC expiry, refresh token, client ID/secret, and scopes. Google-auth can refresh it after the access token expires.
 
-Exported pickles contain portable credential data rather than private Google-auth runtime objects. This avoids errors such as `No module named google.auth._regional_access_boundary_utils` when a bot uses an older Google-auth release. If you exported a Windows token before version 3.0.23, generate and save a fresh `token.pickle` with the updated app, then replace the bot's old file. Saved credentials are reused, so a new sign-in is usually unnecessary.
+Exported pickles contain portable credential data rather than private Google-auth runtime objects. This avoids errors such as `No module named google.auth._regional_access_boundary_utils` when a bot uses an older Google-auth release. If you exported a Windows token before version 3.0.22, generate and save a fresh `token.pickle` with the updated app, then replace the bot's old file. Saved credentials are reused, so a new sign-in is usually unnecessary.
 
 The WZML-X preset requests `drive`, `youtube.upload`, `youtube.readonly`, and `youtube.force-ssl` under `https://www.googleapis.com/auth/`. Choose **Sign in again** to select a different Google account or replace a revoked grant. New credentials replace the saved entry only after successful authorization with all selected permissions.
 
