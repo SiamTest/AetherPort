@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.24'
+VERSION = '3.0.25'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -391,8 +391,9 @@ def _identity(service: str, token: str) -> tuple[str,str]:
     email = user.get('email')
     if user.get('emailVerified') is False:
         raise ValueError(f'Hugging Face reports an unverified email for @{username}. Check that this saved token belongs to your verified account.')
-    if user.get('emailVerified') is not True:
-        raise ValueError(f'Hugging Face did not return email verification status for @{username}. Use Check token to inspect the saved token account.')
+    # An omitted status is unknown, not an explicit verification failure.
+    if user.get('emailVerified') is not None and not isinstance(user['emailVerified'], bool):
+        raise ValueError(f'Hugging Face returned an invalid email verification status for @{username}.')
     if not isinstance(email, str) or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email):
         raise ValueError(f'Hugging Face did not return a usable commit email for @{username}. Your token authenticated, but account email data is missing or invalid.')
     return str(user.get('fullname') or username)[:200], email
@@ -415,7 +416,7 @@ def huggingface_token_status(token: str) -> str:
     """Show safe identity diagnostics; never include the token or account email."""
     user = _huggingface_profile(token)
     verified = user.get('emailVerified')
-    verification = 'Yes' if verified is True else 'No' if verified is False else 'Not returned'
+    verification = 'Yes' if verified is True else 'No' if verified is False else 'Not returned' if verified is None else 'Invalid'
     email = user.get('email')
     email_status = 'Present' if isinstance(email, str) and re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email) else 'Missing or invalid'
     auth = user.get('auth')
