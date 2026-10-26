@@ -554,7 +554,7 @@ private fun HuggingFaceScreen(vm: AetherPortViewModel, manageRepositories: () ->
             chooseRepository = false; vm.publishHuggingFace(publishArchive, repo, token, branch, commit)
         })
     ScreenColumn(vm) {
-        SectionHeader("Publish to Hugging Face", "Publish the selected ZIP to a Space with one commit per changed file. Commits use the selected token's account and verified account email.")
+        SectionHeader("Publish to Hugging Face", "Publish the selected ZIP to a Space with one commit per changed file. Commits are credited to the selected token's account.")
         ProjectSourcePicker(vm, project, selectProject)
         TokenPicker(vm.hfTokenNames, token) { token = it }
         OutlinedTextField(branch, { branch = it }, label = { Text("Branch") }, singleLine = true, modifier = Modifier.fillMaxWidth())
