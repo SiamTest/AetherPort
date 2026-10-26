@@ -1,11 +1,11 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.24** and **Windows 3.0.25**.
+This combined source project contains **Android 3.0.25** and **Windows 3.0.26**.
 The interface follows [Auralis](https://github.com/SiamTest/Auralis): charcoal backgrounds, violet accents, rounded filled controls and compact navigation. AetherPort keeps its own branding and features.
 
 Validation for the v3.0.23 interface update: 54 Windows tests and native Tk page/button checks pass. The Android shared theme, controls and drawer APIs compile against Compose 1.8.1 / Material 3 1.3.2. The full Android unit-test/lint/APK run was blocked by HTTP 403 responses while resolving build dependencies; no complete APK build or Android device check is claimed.
 
-Windows 3.0.25 and Android 3.0.24 fix Hugging Face publishing when an authenticated profile omits the email-verification status. A valid account email is still required for commit attribution, and an explicit unverified status is rejected. Windows retains **Hugging Face → Check token**, which reports missing status honestly without showing the token or personal email. The missing-field failure is reproduced with offline profile fixtures. All 64 Windows tests, two Android JVM identity tests, and the source/release checks pass. The full Android build/lint, live publishing and fresh installers have not been tested here.
+Windows 3.0.26 and Android 3.0.25 handle authenticated Hugging Face profiles that hide both email and email-verification metadata. When email is absent, Git commits use the authenticated username’s Hub-supported `<username>@users.noreply.huggingface.co` address. Existing valid account emails remain unchanged. Explicitly unverified accounts, invalid identities and malformed supplied emails remain rejected. Windows Check token now reports **Hub no-reply fallback** instead of treating a hidden email as an error. No manual email or new token is required for this fallback. All 67 Python tests, three Android JVM identity tests, and source/release checks pass, including an actual local Git publish with the no-reply identity. Full Android build/lint, live Hub publishing and fresh installers have not been tested here.
 
 Both platforms publish ZIPs with one commit per changed file. Android retains faster gallery thumbnails; Windows retains its saved repository chooser.
 
@@ -25,7 +25,7 @@ AetherPort is a native Android workspace for publishing projects, connecting acc
 
 
 
-**Version:** 3.0.24
+**Version:** 3.0.25
 
 **Package:** `com.forgeport.android` (kept for upgrades and existing app data)  
 
