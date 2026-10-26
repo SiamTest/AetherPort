@@ -26,7 +26,7 @@ def test_verified_fine_grained_profile_keeps_its_commit_identity(profile):
 
 @pytest.mark.parametrize('change, message, status', [
     ({'emailVerified': False}, 'unverified email for @ExampleOwner', 'Email verified: No'),
-    ({'emailVerified': None}, 'did not return email verification status', 'Email verified: Not returned'),
+    ({'emailVerified': 'false'}, 'invalid email verification status', 'Email verified: Invalid'),
     ({'email': None}, 'did not return a usable commit email', 'Commit email: Missing or invalid'),
 ])
 def test_account_failures_are_specific_and_keep_validation(profile, change, message, status):
@@ -46,4 +46,17 @@ def test_rejected_token_does_not_become_an_email_error(profile, status):
 def test_malformed_profile_cannot_supply_a_commit_identity(profile):
     profile[0]['type'] = 'org'
     with pytest.raises(ValueError, match='personal account identity'):
+        core._identity('hf', 'dummy-secret')
+
+
+@pytest.mark.parametrize('null_status', [False, True])
+def test_omitted_or_null_verification_is_unknown_not_unverified(profile, null_status):
+    if null_status:
+        profile[0]['emailVerified'] = None
+    else:
+        profile[0].pop('emailVerified')
+    assert core._identity('hf', 'dummy-secret') == ('Token Owner', 'owner@example.com')
+    assert 'Email verified: Not returned' in core.huggingface_token_status('dummy-secret')
+    profile[0]['email'] = None
+    with pytest.raises(ValueError, match='usable commit email'):
         core._identity('hf', 'dummy-secret')
