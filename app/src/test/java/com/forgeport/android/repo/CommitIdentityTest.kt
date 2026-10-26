@@ -19,8 +19,15 @@ class CommitIdentityTest {
     @Test fun omittedVerificationKeepsAccountEmailWithoutClaimingVerification() {
         assertEquals(CommitIdentity("HF user", "user@example.com"),
             CommitIdentity.huggingFace("user", "HF user", "user@example.com", null))
-        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "", null) }
+        assertEquals("user@users.noreply.huggingface.co", CommitIdentity.huggingFace("user", "", "", null).email)
         assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "bad\n@example.com", null) }
         assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "user@example.com", false) }
+    }
+
+    @Test fun hiddenEmailUsesTheAuthenticatedUsersHubNoreplyIdentity() {
+        assertEquals(CommitIdentity("Token Owner", "ActualOwner@users.noreply.huggingface.co"),
+            CommitIdentity.huggingFace("ActualOwner", "Token Owner", "", null))
+        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("bad\nuser", "", "", null) }
+        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "", false) }
     }
 }
