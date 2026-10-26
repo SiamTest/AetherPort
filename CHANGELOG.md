@@ -1,3 +1,10 @@
+## Android 3.0.24 / Windows 3.0.25 — Optional Hugging Face verification metadata
+
+- Fix the reproduced publishing rejection when whoami-v2 omits emailVerified: missing/null now means unknown, rather than an unverified account.
+- Retain the authenticated personal account and valid account-email requirements, reject explicit false or malformed verification flags, and preserve real account commit attribution.
+- Keep Windows Check token diagnostics honest: an omitted status remains Not returned, never Yes.
+- Add regression coverage for omitted/null verification, explicit false and missing/invalid account email. No tokens, private email addresses or live publishing credentials are included in tests.
+
 ## Windows 3.0.24 — Hugging Face token diagnostics
 
 - Add Check token beside the publishing token selector, available without selecting a ZIP or publishing.
