@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from .core import (VERSION, VariableVault, data_dir, list_archives, delete_archive,
                    normalize_repo, repo_variable_name, publish_zip, download_hf, mask,
-                   portable_backup_encrypt, validate_branch, repository_kind)
+                   portable_backup_encrypt, validate_branch, repository_kind, huggingface_token_status)
 from .google_auth import authorize, DEFAULT_SCOPES
 from .updates import find_windows_update, download_installer, launch_installer
 
@@ -376,6 +376,15 @@ class AetherPortWindow(tk.Tk):
             label(box,'Hugging Face token variable',10,color=MUTED,bg=SURFACE).pack(anchor='w',pady=(10,4))
             combo=ttk.Combobox(box,textvariable=token,values=token_names,state='readonly',font=(FONT,11))
             combo.pack(fill='x',ipady=5)
+            def check_token():
+                if self.busy: return
+                secret = self.vault.all().get(token.get(), '')
+                if not secret:
+                    messagebox.showerror('Missing token', 'Select a saved Hugging Face token first.', parent=self)
+                    return
+                self._task(lambda: huggingface_token_status(secret),
+                           lambda report: messagebox.showinfo('Hugging Face token account', report, parent=self))
+            Button(box, 'Check token', check_token).pack(anchor='w', pady=(8, 0))
         else: token=None
         field_line(box,'Branch',branch)
         field_line(box,'Commit message',commit)
