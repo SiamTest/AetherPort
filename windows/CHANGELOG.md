@@ -1,5 +1,13 @@
 # Changelog
 
+## Windows 3.0.24 — Hugging Face token diagnostics
+
+- Add Check token beside the publishing token selector, available without selecting a ZIP or publishing.
+- Show the authenticated username, token role, email verification status and commit-email availability without displaying the secret or personal email.
+- Replace the ambiguous verify-email error with separate messages for rejected tokens, invalid identity, unverified email and missing profile fields.
+- Keep verified-email commit attribution and repository write checks; do not bypass authentication or fabricate account email addresses.
+- Cover a verified fine-grained profile, incomplete profiles, rejected tokens and the UI callback with offline tests. Android remains at 3.0.23.
+
 ## Windows 3.0.23 — Auralis-inspired interface
 
 - Match SiamTest/Auralis's charcoal surfaces, soft violet accents, muted text, rounded shapes and compact type hierarchy.
