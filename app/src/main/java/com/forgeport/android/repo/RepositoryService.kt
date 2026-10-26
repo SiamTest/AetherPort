@@ -176,8 +176,12 @@ class RepositoryService(
     private fun huggingFaceIdentity(token: String): CommitIdentity {
         val user = accountProfile("https://huggingface.co/api/whoami-v2", token, "Hugging Face")
         check(user.optString("type") == "user") { "Use a Hugging Face personal account token to publish as your account." }
+        val verified = user.opt("emailVerified")
+        check(verified == null || verified == JSONObject.NULL || verified is Boolean) {
+            "Hugging Face returned an invalid email verification status."
+        }
         return CommitIdentity.huggingFace(user.optString("name"), user.optString("fullname").takeUnless { it == "null" }.orEmpty(),
-            user.optString("email"), user.optBoolean("emailVerified"))
+            user.optString("email"), verified as? Boolean)
     }
 
     private fun accountProfile(url: String, token: String, service: String): JSONObject {
