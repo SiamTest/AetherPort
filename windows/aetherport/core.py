@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.23'
+VERSION = '3.0.24'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -386,15 +386,46 @@ def _identity(service: str, token: str) -> tuple[str,str]:
             raise ValueError('GitHub did not return a personal account identity.')
         name = str(user.get('name') or login).strip()[:200]
         return name, f'{account_id}+{login}@users.noreply.github.com'
-    resp = requests.get('https://huggingface.co/api/whoami-v2', headers={'Authorization':f'Bearer {token}'}, timeout=25)
+    user = _huggingface_profile(token)
+    username = user['name']
+    email = user.get('email')
+    if user.get('emailVerified') is False:
+        raise ValueError(f'Hugging Face reports an unverified email for @{username}. Check that this saved token belongs to your verified account.')
+    if user.get('emailVerified') is not True:
+        raise ValueError(f'Hugging Face did not return email verification status for @{username}. Use Check token to inspect the saved token account.')
+    if not isinstance(email, str) or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email):
+        raise ValueError(f'Hugging Face did not return a usable commit email for @{username}. Your token authenticated, but account email data is missing or invalid.')
+    return str(user.get('fullname') or username)[:200], email
+
+
+def _huggingface_profile(token: str) -> dict:
+    resp = requests.get('https://huggingface.co/api/whoami-v2',
+                        headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'}, timeout=25)
+    if resp.status_code in (401, 403):
+        raise ValueError(f'Hugging Face rejected this saved token ({resp.status_code}). Check its value and whether it is expired or revoked.')
     resp.raise_for_status()
     user = resp.json()
-    username = str(user.get('name', '')).strip()
-    email = str(user.get('email', '')).strip()
-    verified = bool(user.get('emailVerified', False))
-    if not username or not email or not verified or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email):
-        raise ValueError('Verify your Hugging Face email and use a token with account access.')
-    return str(user.get('fullname') or username)[:200], email
+    if (not isinstance(user, dict) or user.get('type') != 'user' or
+            not isinstance(user.get('name'), str) or not re.fullmatch(r'[A-Za-z0-9_-]+', user['name'])):
+        raise ValueError('Hugging Face did not return a personal account identity for this token.')
+    return user
+
+
+def huggingface_token_status(token: str) -> str:
+    """Show safe identity diagnostics; never include the token or account email."""
+    user = _huggingface_profile(token)
+    verified = user.get('emailVerified')
+    verification = 'Yes' if verified is True else 'No' if verified is False else 'Not returned'
+    email = user.get('email')
+    email_status = 'Present' if isinstance(email, str) and re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email) else 'Missing or invalid'
+    auth = user.get('auth')
+    access = auth.get('accessToken') if isinstance(auth, dict) else None
+    role = access.get('role') if isinstance(access, dict) else None
+    role = role if role in ('read', 'write', 'fineGrained', 'god') else 'Not returned'
+    return (f"Account: @{user['name']}\nToken role: {role}\n"
+            f"Email verified: {verification}\nCommit email: {email_status}\n\n"
+            'These details belong to the token saved in AetherPort. Compare the account with the one signed in to your browser. '
+            'Repository write access is checked separately when publishing.')
 
 
 def _git_environment(tmp: Path, token: str) -> dict[str,str]:
