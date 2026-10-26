@@ -1,5 +1,14 @@
 # Changelog
 
+## Android 3.0.25 / Windows 3.0.26 — Hugging Face hidden-email fallback
+
+- Handle the observed fine-grained whoami response that identifies the token owner while omitting both email and emailVerified.
+- Use the authenticated username’s Hub-supported no-reply address when personal email is absent, preserving profile attribution without asking for another token or manually entered email.
+- Keep an API-supplied valid email unchanged, reject explicitly unverified accounts and malformed supplied email, and retain authentication and repository permission checks.
+- Update Check token to show Hub no-reply fallback while keeping missing verification status marked Not returned.
+- Test the hidden-metadata profile and actual local Git commits against a harmless bare repository; no live account credentials or remote publishing are used.
+- Reference: https://github.com/huggingface/hub-docs/issues/259 (Hub maintainer confirmation of profile-linked no-reply addresses). Historical attribution can change if the account username is renamed.
+
 ## Android 3.0.24 / Windows 3.0.25 — Optional Hugging Face verification metadata
 
 - Fix the reproduced publishing rejection when whoami-v2 omits emailVerified: missing/null now means unknown, rather than an unverified account.
