@@ -8,10 +8,12 @@ internal data class CommitIdentity(val name: String, val email: String) {
             return CommitIdentity(cleanName(displayName, login), "$id+$login@users.noreply.github.com")
         }
 
-        fun huggingFace(username: String, displayName: String, email: String, verified: Boolean): CommitIdentity {
+        fun huggingFace(username: String, displayName: String, email: String, verified: Boolean?): CommitIdentity {
             require(username.matches(Regex("[A-Za-z0-9_-]+"))) { "Hugging Face did not return a valid account identity." }
-            require(verified && email.matches(Regex("[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+"))) {
-                "Verify your Hugging Face account email before publishing."
+            // Missing metadata is unknown; only an explicit false is unverified.
+            require(verified != false) { "Hugging Face reports an unverified account email." }
+            require(email.matches(Regex("[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+"))) {
+                "Hugging Face did not return a usable commit email for @$username."
             }
             return CommitIdentity(cleanName(displayName, username), email)
         }
