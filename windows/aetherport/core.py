@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.25'
+VERSION = '3.0.26'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -388,15 +388,12 @@ def _identity(service: str, token: str) -> tuple[str,str]:
         return name, f'{account_id}+{login}@users.noreply.github.com'
     user = _huggingface_profile(token)
     username = user['name']
-    email = user.get('email')
     if user.get('emailVerified') is False:
         raise ValueError(f'Hugging Face reports an unverified email for @{username}. Check that this saved token belongs to your verified account.')
     # An omitted status is unknown, not an explicit verification failure.
     if user.get('emailVerified') is not None and not isinstance(user['emailVerified'], bool):
         raise ValueError(f'Hugging Face returned an invalid email verification status for @{username}.')
-    if not isinstance(email, str) or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email):
-        raise ValueError(f'Hugging Face did not return a usable commit email for @{username}. Your token authenticated, but account email data is missing or invalid.')
-    return str(user.get('fullname') or username)[:200], email
+    return str(user.get('fullname') or username)[:200], _huggingface_commit_email(user)
 
 
 def _huggingface_profile(token: str) -> dict:
@@ -412,13 +409,28 @@ def _huggingface_profile(token: str) -> dict:
     return user
 
 
+def _huggingface_commit_email(user: dict) -> str:
+    """The caller has already authenticated and validated the profile username."""
+    email = user.get('email')
+    if email is None or email == '':
+        # Hub-supported profile attribution when the API hides personal email.
+        # https://github.com/huggingface/hub-docs/issues/259
+        return f"{user['name']}@users.noreply.huggingface.co"
+    if not isinstance(email, str) or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email):
+        raise ValueError(f"Hugging Face did not return a usable commit email for @{user['name']}.")
+    return email
+
+
 def huggingface_token_status(token: str) -> str:
     """Show safe identity diagnostics; never include the token or account email."""
     user = _huggingface_profile(token)
     verified = user.get('emailVerified')
     verification = 'Yes' if verified is True else 'No' if verified is False else 'Not returned' if verified is None else 'Invalid'
-    email = user.get('email')
-    email_status = 'Present' if isinstance(email, str) and re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+', email) else 'Missing or invalid'
+    try:
+        _huggingface_commit_email(user)
+        email_status = 'Hub no-reply fallback' if user.get('email') in (None, '') else 'Present'
+    except ValueError:
+        email_status = 'Invalid'
     auth = user.get('auth')
     access = auth.get('accessToken') if isinstance(auth, dict) else None
     role = access.get('role') if isinstance(access, dict) else None
@@ -426,6 +438,7 @@ def huggingface_token_status(token: str) -> str:
     return (f"Account: @{user['name']}\nToken role: {role}\n"
             f"Email verified: {verification}\nCommit email: {email_status}\n\n"
             'These details belong to the token saved in AetherPort. Compare the account with the one signed in to your browser. '
+            'If Hugging Face hides your email, publishing uses its account-linked no-reply address. '
             'Repository write access is checked separately when publishing.')
 
 
