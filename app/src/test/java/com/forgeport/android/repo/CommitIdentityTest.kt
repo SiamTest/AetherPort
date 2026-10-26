@@ -15,4 +15,12 @@ class CommitIdentityTest {
         assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "user@example.com", false) }
         assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "user@example.com\n", true) }
     }
+
+    @Test fun omittedVerificationKeepsAccountEmailWithoutClaimingVerification() {
+        assertEquals(CommitIdentity("HF user", "user@example.com"),
+            CommitIdentity.huggingFace("user", "HF user", "user@example.com", null))
+        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "", null) }
+        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "bad\n@example.com", null) }
+        assertThrows(IllegalArgumentException::class.java) { CommitIdentity.huggingFace("user", "", "user@example.com", false) }
+    }
 }
