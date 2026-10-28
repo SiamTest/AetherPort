@@ -1,6 +1,6 @@
 # AetherPort — Windows Desktop Edition
 
-**Version 3.0.26** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
+**Version 3.0.27** · A native Windows GUI inspired by AetherPort for Android. **No E-Hentai code, UI, or dependencies.**
 
 ## Features
 
@@ -67,3 +67,7 @@ Enable Google Drive API and YouTube Data API v3 in your Google Cloud project for
 ### Interface check
 
 The interface follows Auralis’s charcoal/violet styling with rounded controls and native keyboard focus. Run `python ../tools/verify_windows_ui.py` from `windows/` with a desktop display to open all six pages at the default and minimum window sizes and verify button states, shell clicks and focus. No account or network is used.
+
+### Hugging Face Space metadata
+
+When the root README’s YAML `emoji` field is exactly the decorative star `✦` or `✧`, its staged upload uses the supported emoji `✨`. Quoting and comments are preserved. The original ZIP, README body, nested READMEs and GitHub publishing are unchanged. This does not validate or repair other YAML fields. Git errors are shown without terminal escape formatting.
