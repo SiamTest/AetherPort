@@ -1,6 +1,10 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.25** and **Windows 3.0.26**.
+This combined source project contains **Android 3.0.27** and **Windows 3.0.27**.
+Android 3.0.26 keeps the Google OAuth callback listener active with a temporary foreground notification while Chrome is open. Complete sign-in within 150 seconds and return to AetherPort to save token.pickle. The service stops when the callback finishes or the attempt fails; cached token reuse and Windows 3.0.26 are unchanged. Ten targeted JVM tests (six callback, one pickle and three identity tests), Android API 36 OAuth compilation, and source/release checks pass. The 67 Windows tests also pass. The Android compilation uses placeholders only for generated resource identifiers and the MainActivity class reference; it is not a full APK build. Full Android build/lint and Android/Chrome device verification are still required.
+
+Android and Windows 3.0.27 normalize rejected decorative stars (`✦` / `✧`) to `✨` only in the Hugging Face upload’s root README YAML `emoji` field. The original ZIP, GitHub uploads and README body are unchanged. Other metadata errors still require correcting the source. Windows Git error dialogs now remove terminal colour codes and hyperlinks before truncation and token redaction. Validation for this update: 79 Windows tests and the Android JVM metadata regression test pass, including local Git publishes and unchanged ZIP-byte checks. Source and release checks pass. Full Android build/lint and live Hub publishing remain unverified.
+
 The interface follows [Auralis](https://github.com/SiamTest/Auralis): charcoal backgrounds, violet accents, rounded filled controls and compact navigation. AetherPort keeps its own branding and features.
 
 Validation for the v3.0.23 interface update: 54 Windows tests and native Tk page/button checks pass. The Android shared theme, controls and drawer APIs compile against Compose 1.8.1 / Material 3 1.3.2. The full Android unit-test/lint/APK run was blocked by HTTP 403 responses while resolving build dependencies; no complete APK build or Android device check is claimed.
