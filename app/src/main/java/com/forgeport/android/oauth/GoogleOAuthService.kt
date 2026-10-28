@@ -56,7 +56,7 @@ class GoogleOAuthService(private val context: Context) {
                 return@withContext result
             }
         }
-        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+        ServerSocket(0, 8, InetAddress.getByName("127.0.0.1")).use { server ->
             val redirectUri = "http://127.0.0.1:${server.localPort}/"
             val verifier = randomUrlSafe(64)
             val challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -72,12 +72,18 @@ class GoogleOAuthService(private val context: Context) {
                 .appendQueryParameter("state", state)
                 .appendQueryParameter("code_challenge", challenge)
                 .appendQueryParameter("code_challenge_method", "S256").build()
-            withContext(Dispatchers.Main) {
-                context.startActivity(Intent(Intent.ACTION_VIEW, authorizationUri).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
+            // A ViewModel coroutine alone can be frozen once Chrome backgrounds the activity.
+            GoogleOAuthCallbackService.start(context)
+            val callback = try {
+                withContext(Dispatchers.Main) {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, authorizationUri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                }
+                awaitGoogleOAuthCallback(server, state)
+            } finally {
+                GoogleOAuthCallbackService.stop(context)
             }
-            val callback = awaitGoogleOAuthCallback(server, state)
             callback["error"]?.let { error("Google authorization was not completed: $it") }
             val code = callback["code"].orEmpty()
             require(code.isNotBlank()) { "Google did not return an authorization code." }
