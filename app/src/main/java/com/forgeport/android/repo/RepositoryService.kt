@@ -142,6 +142,7 @@ class RepositoryService(
                 // the server reports UP_TO_DATE rather than receiving duplicate commits.
                 val results = retryGitTransfer("Push") {
                     git.push()
+                        .setTransportConfigCallback(::configureHuggingFaceTransport)
                         .setCredentialsProvider(credentials)
                         .setTimeout(GIT_TRANSFER_TIMEOUT_SECONDS)
                         .setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
