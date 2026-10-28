@@ -1,3 +1,11 @@
+## Windows 3.0.27 — Hugging Face Space metadata compatibility
+
+- Normalize the known rejected decorative stars ✦ and ✧ to the supported emoji ✨ only in the top-level emoji field of a staged Space README's closed YAML metadata block.
+- Preserve the source ZIP, GitHub uploads, nested READMEs, body text, valid emojis, quotes, comments, UTF-8 BOM and line endings. This is a narrow compatibility fix, not a general YAML or emoji validator.
+- Strip ANSI terminal formatting and hyperlinks from Windows Git errors before truncating and redacting tokens, so server rejection messages remain readable.
+- Add local Git publish checks for Hugging Face versus GitHub, repeat-publish idempotence and unchanged ZIP bytes, plus metadata and error-cleanup regression coverage.
+- Reference: https://huggingface.co/docs/hub/en/spaces-config-reference (Space configuration lives in root README.md YAML; the emoji field accepts emoji characters).
+
 # Changelog
 
 ## Android 3.0.25 / Windows 3.0.26 — Hugging Face hidden-email fallback
