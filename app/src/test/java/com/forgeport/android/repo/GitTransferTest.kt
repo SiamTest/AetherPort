@@ -22,6 +22,9 @@ import org.eclipse.jgit.transport.ReceivePack
 import org.eclipse.jgit.transport.RefAdvertiser.PacketLineOutRefAdvertiser
 import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
+import org.eclipse.jgit.transport.Transport
+import org.eclipse.jgit.transport.TransportHttp
+import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.transport.UploadPack
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.junit.Assert.*
@@ -53,10 +56,13 @@ class GitTransferTest {
         private val repository: Repository,
         private val breakClone: Boolean = false,
         private val breakPush: Boolean = false,
+        private val rejectGzip: Boolean = false,
     ) : AutoCloseable {
         private val server = MockWebServer()
         val cloneAdvertisements = AtomicInteger()
         val pushRequests = AtomicInteger()
+        val gzipRequests = AtomicInteger()
+        val plainPosts = AtomicInteger()
         val url get() = server.url("/repo.git").toString()
 
         init {
@@ -66,23 +72,30 @@ class GitTransferTest {
                     val advertisement = requestUrl.encodedPath.endsWith("/info/refs")
                     val service = if (advertisement) requestUrl.queryParameter("service")
                         else requestUrl.encodedPath.substringAfterLast('/')
+                    if (rejectGzip && request.getHeader("Content-Encoding") == "gzip") {
+                        gzipRequests.incrementAndGet()
+                        return MockResponse().setHeader("Content-Type", "application/x-$service-result").setBody("")
+                    }
+                    if (!advertisement && request.getHeader("Content-Encoding") == null) plainPosts.incrementAndGet()
                     val body = request.body.inputStream()
                     val input = if (request.getHeader("Content-Encoding") == "gzip") GZIPInputStream(body) else body
                     val output = ByteArrayOutputStream()
                     val packet = PacketLineOut(output)
                     if (advertisement) {
-                        packet.writeString("# service=$service\n")
-                        packet.end()
                         if (service == "git-upload-pack" && breakClone && cloneAdvertisements.incrementAndGet() == 1) {
+                            packet.writeString("# service=$service\n")
+                            packet.end()
                             // Incomplete four-byte packet length reproduces JGit's exact EOF message.
                             output.write("001".toByteArray())
                         } else if (service == "git-upload-pack") {
-                            UploadPack(repository).use { it.sendAdvertisedRefs(PacketLineOutRefAdvertiser(packet)) }
+                            uploadPack(request).use { it.sendAdvertisedRefs(PacketLineOutRefAdvertiser(packet), service) }
                         } else {
+                            packet.writeString("# service=$service\n")
+                            packet.end()
                             ReceivePack(repository).apply { sendAdvertisedRefs(PacketLineOutRefAdvertiser(packet)); revWalk.close() }
                         }
                     } else if (service == "git-upload-pack") {
-                        UploadPack(repository).use {
+                        uploadPack(request).use {
                             it.isBiDirectionalPipe = false
                             it.upload(input, output, null)
                         }
@@ -104,6 +117,10 @@ class GitTransferTest {
                 }
             }
             server.start(InetAddress.getByName("127.0.0.1"), 0)
+        }
+
+        private fun uploadPack(request: RecordedRequest) = UploadPack(repository).apply {
+            if (rejectGzip && request.getHeader("Git-Protocol") == "version=2") setExtraParameters(listOf("version=2"))
         }
 
         override fun close() = server.shutdown()
@@ -136,6 +153,43 @@ class GitTransferTest {
                 assertTrue(results.flatMap { it.remoteUpdates }.all { it.status == RemoteRefUpdate.Status.UP_TO_DATE })
                 assertEquals(tip, remote.repository.resolve("refs/heads/main"))
                 assertEquals(2, remote.log().add(tip).call().count())
+            }
+        }
+    }
+
+    @Test fun emptyHubResponseToGzipIsFixedForCloneAndPush() = remote { remote ->
+        Server(remote.repository, rejectGzip = true).use { server ->
+            try {
+                Git.cloneRepository().setURI(server.url).setDirectory(File(temporary.newFolder(), "broken"))
+                    .setTimeout(5).call().close()
+                fail("Expected the Hub's empty response to break ordinary JGit")
+            } catch (error: TransportException) {
+                assertTrue(cleanGitError(error).contains("Short read of block."))
+            }
+            assertEquals(1, server.gzipRequests.get())
+            val configure = org.eclipse.jgit.api.TransportConfigCallback {
+                (it as TransportHttp).setHttpConnectionFactory(HuggingFaceHttpConnectionFactory)
+            }
+            Git.cloneRepository().setURI(server.url).setDirectory(File(temporary.newFolder(), "fixed"))
+                .setTransportConfigCallback(configure).setTimeout(5).call().use { clone ->
+                    assertEquals(remote.repository.resolve("refs/heads/main"), clone.repository.resolve(Constants.HEAD))
+                    commit(clone, "updated over uncompressed HTTP")
+                    val updates = clone.push().setTransportConfigCallback(configure).setTimeout(5)
+                        .setRefSpecs(RefSpec("refs/heads/main:refs/heads/main")).call().flatMap { it.remoteUpdates }
+                    assertEquals(listOf(RemoteRefUpdate.Status.OK), updates.map { it.status })
+                    assertEquals(clone.repository.resolve(Constants.HEAD), remote.repository.resolve("refs/heads/main"))
+                }
+            assertEquals("No additional gzip requests may reach the server", 1, server.gzipRequests.get())
+            assertTrue("Clone negotiation, pack fetch and push must use uncompressed HTTP bodies", server.plainPosts.get() >= 3)
+        }
+    }
+
+    @Test fun compatibilityFactoryIsScopedToTheHuggingFaceHost() = remote { remote ->
+        for (host in listOf("huggingface.co", "github.com", "huggingface.co.example.com")) {
+            Transport.open(remote.repository, URIish("https://$host/spaces/test/repo.git")).use { transport ->
+                configureHuggingFaceTransport(transport)
+                assertEquals(host == "huggingface.co",
+                    (transport as TransportHttp).httpConnectionFactory === HuggingFaceHttpConnectionFactory)
             }
         }
     }
