@@ -1,3 +1,12 @@
+## Android 3.0.28 — Interrupted Git transfer recovery
+
+- Retry an interrupted clone once from a clean temporary directory, for GitHub publishing, Hugging Face publishing and Hugging Face ZIP downloads.
+- Retry an interrupted push once using the same commits and normal fast-forward checks. A lost success response can resolve as up to date without creating duplicate commits.
+- Set a 120-second transport timeout; retain server rejection details and nested error messages while redacting access tokens.
+- Never retry authentication, permission or server validation rejections. Windows remains 3.0.27.
+- Validation: 12 targeted JVM tests pass (including truncated smart-HTTP responses, lost push-success acknowledgement, per-file commits and metadata compatibility), plus source and stable-release script checks.
+- The screenshot does not include a stack trace, so it cannot identify the original failing transfer step. This change covers interrupted-transfer recovery and makes persistent failures diagnosable; a live Android/Hugging Face verification is still needed.
+
 ## Android 3.0.27 / Windows 3.0.27 — Hugging Face Space metadata compatibility
 
 - Normalize the known rejected decorative stars ✦ and ✧ to the supported emoji ✨ only in the top-level emoji field of a staged Space README's closed YAML metadata block.
