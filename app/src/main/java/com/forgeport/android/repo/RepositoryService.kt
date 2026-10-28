@@ -99,13 +99,7 @@ class RepositoryService(
             val repoDir = File(tempRoot, "repo")
             try {
                 val credentials = UsernamePasswordCredentialsProvider(repoId.substringBefore('/'), token)
-                Git.cloneRepository()
-                    .setURI("https://huggingface.co/spaces/$repoId.git")
-                    .setCredentialsProvider(credentials)
-                    .setBranch(branch)
-                    .setDirectory(repoDir)
-                    .call()
-                    .use { }
+                cloneForTransfer("https://huggingface.co/spaces/$repoId.git", credentials, repoDir, branch).use { }
                 File(repoDir, ".git").deleteRecursively()
                 val output = File(context.cacheDir, (repoId.substringAfter('/') + "-" + branch + ".zip").sanitizeFileName())
                 if (output.exists()) output.delete()
@@ -130,39 +124,41 @@ class RepositoryService(
         val repoDir = File(tempRoot, "repo")
         val credentials = UsernamePasswordCredentialsProvider(username, token)
         try {
-            Git.cloneRepository()
-                .setURI(cloneUrl)
-                .setCredentialsProvider(credentials)
-                .setDirectory(repoDir)
-                .call()
-                .use { git ->
-                    checkoutBranch(git, branch)
-                    // Publishing always writes the detected project root to the repository root.
-                    // The clone's Git directory is preserved for committing and pushing.
-                    repoDir.listFiles().orEmpty().filter { it.name != ".git" }.forEach { it.deleteRecursively() }
-                    copyTree(source, repoDir)
-                    if (cloneUrl.startsWith("https://huggingface.co/spaces/")) normalizeHuggingFaceReadme(repoDir)
-                    git.add().addFilepattern(".").call()
-                    git.add().setUpdate(true).addFilepattern(".").call()
-                    val commits = commitChangedFiles(git, commitMessage, identity)
-                    if (commits.isEmpty()) {
-                        return OperationResult(true, "No changes found. Nothing was pushed.")
-                    }
-                    check(git.status().call().isClean) { "Some file changes were not committed. Nothing was pushed." }
-                    val updates = git.push()
-                        .setCredentialsProvider(credentials)
-                        .setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
-                        .call()
-                        .flatMap { it.remoteUpdates }
-                    check(updates.isNotEmpty() && updates.all { it.status in setOf(RemoteRefUpdate.Status.OK, RemoteRefUpdate.Status.UP_TO_DATE) }) {
-                        "The push was rejected. Refresh the repository and try again."
-                    }
-                    return OperationResult(
-                        ok = true,
-                        message = "Published ${commits.size} file commits to $branch.",
-                        log = "Last commit ${commits.last().id.name.take(8)} • ${identity.name}",
-                    )
+            cloneForTransfer(cloneUrl, credentials, repoDir).use { git ->
+                checkoutBranch(git, branch)
+                // Publishing always writes the detected project root to the repository root.
+                // The clone's Git directory is preserved for committing and pushing.
+                repoDir.listFiles().orEmpty().filter { it.name != ".git" }.forEach { it.deleteRecursively() }
+                copyTree(source, repoDir)
+                if (cloneUrl.startsWith("https://huggingface.co/spaces/")) normalizeHuggingFaceReadme(repoDir)
+                git.add().addFilepattern(".").call()
+                git.add().setUpdate(true).addFilepattern(".").call()
+                val commits = commitChangedFiles(git, commitMessage, identity)
+                if (commits.isEmpty()) {
+                    return OperationResult(true, "No changes found. Nothing was pushed.")
                 }
+                check(git.status().call().isClean) { "Some file changes were not committed. Nothing was pushed." }
+                // Retry the same commits: if the first response was lost after acceptance,
+                // the server reports UP_TO_DATE rather than receiving duplicate commits.
+                val results = retryGitTransfer("Push") {
+                    git.push()
+                        .setCredentialsProvider(credentials)
+                        .setTimeout(GIT_TRANSFER_TIMEOUT_SECONDS)
+                        .setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
+                        .call().toList()
+                }
+                val updates = results.flatMap { it.remoteUpdates }
+                check(updates.isNotEmpty() && updates.all { it.status in setOf(RemoteRefUpdate.Status.OK, RemoteRefUpdate.Status.UP_TO_DATE) }) {
+                    val details = (results.map { it.messages.orEmpty() } + updates.mapNotNull { it.message })
+                        .filter { it.isNotBlank() }.joinToString("\n")
+                    "The push was rejected. ${details.ifBlank { "Refresh the repository and try again." }}"
+                }
+                return OperationResult(
+                    ok = true,
+                    message = "Published ${commits.size} file commits to $branch.",
+                    log = "Last commit ${commits.last().id.name.take(8)} • ${identity.name}",
+                )
+            }
         } finally {
             tempRoot.deleteRecursively()
         }
@@ -240,8 +236,7 @@ class RepositoryService(
         }
     }
 
-    private fun Throwable.cleanMessage(): String = message?.lineSequence()?.firstOrNull()?.take(500)
-        ?: "Repository operation failed."
+    private fun Throwable.cleanMessage(): String = cleanGitError(this)
 
     private fun String.sanitizeFileName(): String = replace(Regex("[^A-Za-z0-9._-]+"), "-").trim('-', '.', '_').ifBlank { "repository" }
 }
