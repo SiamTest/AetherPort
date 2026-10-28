@@ -1,6 +1,9 @@
 # AetherPort — Android and Windows
 
-This combined source project contains **Android 3.0.28** and **Windows 3.0.27**.
+This combined source project contains **Android 3.0.29** and **Windows 3.0.27**.
+
+Android 3.0.29 fixes the reproduced Hugging Face clone failure: the Hub returned HTTP 200 with an empty body to JGit's gzip-compressed Git requests, causing `Short read of block` during protocol-v2 ref discovery. Hugging Face Git requests now use uncompressed bodies with the correct content length while keeping JGit's HTTP, TLS, proxy and authentication handling. The fix covers publishing clones, Space ZIP downloads and pushes. Verified a read-only clone of `SiamReal/GateStream`, matching native Git, plus 14 targeted tests compiled against Android API 36. Full Gradle build/lint and a live authenticated push remain unverified here; Android Gradle plugin resolution is unavailable in this environment.
+
 
 Android 3.0.28 replaces the JDK-only HTTP test fixture with MockWebServer 4.12.0 to fix Android unit-test compilation. Android 3.0.28 retries interrupted Git clones and pushes once, including Hugging Face ZIP downloads. Clone retries discard partial temporary repositories; push retries keep the same commits and normal fast-forward checks. Persistent errors retain the transfer step and nested server details, with access tokens redacted. A screenshot alone cannot identify the original failing step; live Android/Hugging Face verification remains necessary. Validation: the original test compilation error reproduces against Android API 36 boot classes. The corrected repository helpers/tests compile against the same API 36 classpath, and 12 targeted JVM tests pass with the JDK HTTP server module unavailable, including a real local smart-HTTP Git server with deliberately truncated clone and push responses. Full Gradle test/lint validation here is blocked by Android Gradle plugin resolution. Source and release-script checks pass. See CHANGELOG.md for scope.
 
