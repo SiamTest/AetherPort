@@ -141,6 +141,7 @@ class RepositoryService(
                     // The clone's Git directory is preserved for committing and pushing.
                     repoDir.listFiles().orEmpty().filter { it.name != ".git" }.forEach { it.deleteRecursively() }
                     copyTree(source, repoDir)
+                    if (cloneUrl.startsWith("https://huggingface.co/spaces/")) normalizeHuggingFaceReadme(repoDir)
                     git.add().addFilepattern(".").call()
                     git.add().setUpdate(true).addFilepattern(".").call()
                     val commits = commitChangedFiles(git, commitMessage, identity)
