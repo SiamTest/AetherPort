@@ -5,7 +5,7 @@ import java.net.ServerSocket
 import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
-internal fun awaitGoogleOAuthCallback(server: ServerSocket, state: String, timeoutMillis: Long = 180_000): Map<String, String> {
+internal fun awaitGoogleOAuthCallback(server: ServerSocket, state: String, timeoutMillis: Long = 150_000): Map<String, String> {
     val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
     while (true) {
         val remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
@@ -15,16 +15,23 @@ internal fun awaitGoogleOAuthCallback(server: ServerSocket, state: String, timeo
             error("Google sign-in timed out. Return to AetherPort and try again.")
         }
         val callback = socket.use {
-            it.soTimeout = minOf(5_000, server.soTimeout)
+            it.soTimeout = minOf(1_000, server.soTimeout)
             try {
-                val reader = it.getInputStream().bufferedReader(Charsets.UTF_8)
-                val line = buildString {
-                    repeat(8192) {
+                val reader = it.getInputStream().buffered()
+                var bytes = 0
+                fun readLine(): String = buildString {
+                    while (true) {
+                        val left = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
+                        if (left <= 0 || ++bytes > 16_384) throw IOException("Incomplete OAuth request")
+                        it.soTimeout = left.coerceAtMost(1_000).toInt().coerceAtLeast(1)
                         val ch = reader.read()
-                        if (ch == -1 || ch == '\n'.code) return@buildString
-                        append(ch.toChar())
+                        if (ch == -1) throw IOException("Incomplete OAuth request")
+                        if (ch == '\n'.code) return@buildString
+                        if (ch != '\r'.code) append(ch.toChar())
                     }
                 }
+                val line = readLine()
+                while (readLine().isNotEmpty()) { /* Consume bounded HTTP headers before replying. */ }
                 val path = line.split(' ').getOrNull(1).orEmpty()
                 val query = runCatching { path.substringAfter('?', "").split('&').filter { it.isNotBlank() }.associate { part ->
                         URLDecoder.decode(part.substringBefore('='), "UTF-8") to URLDecoder.decode(part.substringAfter('=', ""), "UTF-8")
