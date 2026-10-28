@@ -1,3 +1,11 @@
+## Android 3.0.29 — Hugging Face clone request compatibility
+
+- Reproduce the actual failure against the public SiamReal/GateStream Space: native Git succeeds; JGit fails during protocol-v2 ls-refs because gzip POST requests receive an empty HTTP 200 body. An equivalent uncompressed request returns the expected refs.
+- Send JGit's buffered Hugging Face requests uncompressed with the correct Content-Length using a per-transport JDK HTTP connection factory. Keep normal TLS verification, proxies, credentials, response handling and large uncompressed streaming requests.
+- Apply the factory to the shared publishing/download clone path and to pushes. Restrict it to the huggingface.co host; keep normal GitHub behavior, per-file commits, attribution and non-forced pushes.
+- Validate a live read-only patched clone against the same Space and native Git's commit. Fourteen targeted tests pass against Android API 36, including a local protocol-v2 server that reproduces the empty-gzip-response error and verifies uncompressed clone and push recovery.
+- Full Gradle build/lint and live authenticated publishing remain unverified here; Android Gradle plugin resolution is unavailable. Windows remains 3.0.27.
+
 ## Android 3.0.28 — Interrupted Git transfer recovery
 
 - Build correction: replace the JDK-only com.sun HTTP test server with MockWebServer 4.12.0, matching the existing OkHttp version. Add it only to testImplementation; app runtime behavior is unchanged.
