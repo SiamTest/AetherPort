@@ -1,14 +1,18 @@
 package com.forgeport.android.repo
 
-import com.sun.net.httpserver.HttpServer
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.File
 import java.io.IOException
-import java.net.InetSocketAddress
+import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.errors.TransportException
 import org.eclipse.jgit.lib.Constants
@@ -50,20 +54,20 @@ class GitTransferTest {
         private val breakClone: Boolean = false,
         private val breakPush: Boolean = false,
     ) : AutoCloseable {
-        private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        private val server = MockWebServer()
         val cloneAdvertisements = AtomicInteger()
         val pushRequests = AtomicInteger()
-        val url get() = "http://127.0.0.1:${server.address.port}/repo.git"
+        val url get() = server.url("/repo.git").toString()
 
         init {
-            server.createContext("/repo.git/") { exchange ->
-                exchange.use { response ->
-                    val advertisement = response.requestURI.path.endsWith("/info/refs")
-                    val service = if (advertisement) response.requestURI.query.removePrefix("service=")
-                        else response.requestURI.path.substringAfterLast('/')
-                    val request = if (response.requestHeaders.getFirst("Content-Encoding") == "gzip")
-                        GZIPInputStream(response.requestBody) else response.requestBody
-                    val input = request.readBytes().inputStream()
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    val requestUrl = requireNotNull(request.requestUrl)
+                    val advertisement = requestUrl.encodedPath.endsWith("/info/refs")
+                    val service = if (advertisement) requestUrl.queryParameter("service")
+                        else requestUrl.encodedPath.substringAfterLast('/')
+                    val body = request.body.inputStream()
+                    val input = if (request.getHeader("Content-Encoding") == "gzip") GZIPInputStream(body) else body
                     val output = ByteArrayOutputStream()
                     val packet = PacketLineOut(output)
                     if (advertisement) {
@@ -94,16 +98,15 @@ class GitTransferTest {
                             output.write("001".toByteArray())
                         }
                     }
-                    response.responseHeaders.set("Content-Type", "application/x-$service-${if (advertisement) "advertisement" else "result"}")
-                    val bytes = output.toByteArray()
-                    response.sendResponseHeaders(200, bytes.size.toLong())
-                    response.responseBody.write(bytes)
+                    return MockResponse()
+                        .setHeader("Content-Type", "application/x-$service-${if (advertisement) "advertisement" else "result"}")
+                        .setBody(Buffer().write(output.toByteArray()))
                 }
             }
-            server.start()
+            server.start(InetAddress.getByName("127.0.0.1"), 0)
         }
 
-        override fun close() = server.stop(0)
+        override fun close() = server.shutdown()
     }
 
     @Test fun cloneRecoversFromTruncatedAdvertisementAndDiscardsPartialDirectory() = remote { remote ->
