@@ -1,5 +1,7 @@
 ## Android 3.0.28 — Interrupted Git transfer recovery
 
+- Build correction: replace the JDK-only com.sun HTTP test server with MockWebServer 4.12.0, matching the existing OkHttp version. Add it only to testImplementation; app runtime behavior is unchanged.
+- Confirm the old fixture fails with unresolved sun against Android API 36 boot classes and no JDK classes. Compile the corrected repository helpers/tests against that same API 36 classpath; all 12 tests pass with the jdk.httpserver module unavailable. Full Gradle test/lint validation here is blocked by Android Gradle plugin resolution.
 - Retry an interrupted clone once from a clean temporary directory, for GitHub publishing, Hugging Face publishing and Hugging Face ZIP downloads.
 - Retry an interrupted push once using the same commits and normal fast-forward checks. A lost success response can resolve as up to date without creating duplicate commits.
 - Set a 120-second transport timeout; retain server rejection details and nested error messages while redacting access tokens.
