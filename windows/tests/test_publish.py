@@ -113,6 +113,23 @@ def write_archive(path, files):
             zipped.writestr('wrapper/' + name, content)
 
 
+@pytest.mark.parametrize('service', ['github', 'hf'])
+def test_invalid_space_star_is_fixed_only_in_hf_upload_without_changing_zip(local_publish, tmp_path, service):
+    bare, initial = local_publish({'README.md': 'old'}, service)
+    archive = tmp_path/'project.zip'
+    card = '---\nemoji: "✦" # icon\nsdk: docker\n---\nBody ✦\n'
+    write_archive(archive, {'README.md': card, 'docs/README.md': card})
+    original_zip = archive.read_bytes()
+    result = core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+    assert 'Published 2 file commits' in result
+    expected = card.replace('emoji: "✦"', 'emoji: "✨"') if service == 'hf' else card
+    assert git(['--git-dir', str(bare), 'show', 'main:README.md'], tmp_path) == expected.strip()
+    assert git(['--git-dir', str(bare), 'show', 'main:docs/README.md'], tmp_path) == card.strip()
+    assert set(published_paths(bare, initial, tmp_path)) == {'README.md', 'docs/README.md'}
+    assert archive.read_bytes() == original_zip
+    assert 'No changes found' in core.publish_zip(archive, service, 'ExampleOwner/ExampleProject', 'dummy', 'main', 'Update ZIP')
+
+
 def published_paths(bare, initial, tmp_path):
     commits = git(['--git-dir', str(bare), 'rev-list', '--reverse', f'{initial}..main'], tmp_path).splitlines()
     paths = []
