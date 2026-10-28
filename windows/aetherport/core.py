@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 
 APP_NAME = 'AetherPort'
-VERSION = '3.0.26'
+VERSION = '3.0.27'
 MAGIC = b'AETHCRD1'
 ITERATIONS = 210_000
 MAX_BACKUP = 2 * 1024 * 1024
@@ -367,7 +367,8 @@ def _run_git(args: list[str], cwd: Path, environment: dict[str,str], progress=No
                              capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=240, check=False,
                              creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     if process.returncode != 0:
-        msg = (process.stderr or process.stdout or 'Git operation failed').strip()
+        msg = re.sub(r'\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\))', '',
+                     process.stderr or process.stdout or 'Git operation failed').strip()
         token = environment.get('AETHERPORT_GIT_TOKEN', '')
         if token:
             msg = msg.replace(token, '[REDACTED]')
@@ -466,6 +467,29 @@ def _safe_remove_repo_contents(repo_dir: Path):
             shutil.rmtree(path)
 
 
+def _normalize_hf_readme(root: Path) -> None:
+    """Fix only known rejected decorative stars in the staged Space card, never the ZIP."""
+    readme = root / 'README.md'
+    if not readme.is_file():
+        return
+    raw = readme.read_bytes()
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return
+    opening = re.match(r'\A\ufeff?---\r?\n', text)
+    if not opening:
+        return
+    closing = re.compile(r'^---[ \t]*\r?(?:\n|$)', re.MULTILINE).search(text, opening.end())
+    if not closing:
+        return
+    metadata = text[opening.end():closing.start()]
+    fixed = re.sub(r"(?m)^(emoji:[ \t]*)(['\"]?)[✦✧]\2(?=[ \t]*(?:#[^\r\n]*)?\r?$)",
+                   lambda match: match[1] + match[2] + '✨' + match[2], metadata)
+    if fixed != metadata:
+        readme.write_bytes((text[:opening.end()] + fixed + text[closing.start():]).encode('utf-8'))
+
+
 def publish_zip(archive: Path, service: str, repo: str, token: str,
                 branch: str, message: str, progress=None) -> str:
     repo = normalize_repo(repo, service)
@@ -508,6 +532,8 @@ def publish_zip(archive: Path, service: str, repo: str, token: str,
             dest = work / item.name
             if item.is_dir(): shutil.copytree(item, dest)
             else: shutil.copy2(item, dest)
+        if service != 'github':
+            _normalize_hf_readme(work)
         _run_git(['add', '-A'], work, env)
         changes = _run_git(['diff', '--cached', '--name-status', '--no-renames', '-z'], work, env).split('\0')[:-1]
         files = sorted(zip(changes[::2], changes[1::2]), key=lambda item: (item[0] != 'D', item[1]))
