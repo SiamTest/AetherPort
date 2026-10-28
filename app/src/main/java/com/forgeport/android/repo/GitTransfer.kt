@@ -22,6 +22,7 @@ internal fun cloneForTransfer(
     Git.cloneRepository()
         .setURI(url)
         .setCredentialsProvider(credentials)
+        .setTransportConfigCallback(::configureHuggingFaceTransport)
         .setDirectory(directory)
         .setTimeout(GIT_TRANSFER_TIMEOUT_SECONDS)
         .apply { if (branch != null) setBranch(branch) }
