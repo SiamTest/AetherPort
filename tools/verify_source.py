@@ -422,3 +422,18 @@ gallery_screens = (gallery_root / 'GalleryScreens.kt').read_text()
 assert gallery_screens.count('CenterAlignedTopAppBar(') >= 2
 assert 'MaterialTheme.colorScheme.surfaceContainerLow' in gallery_screens
 assert 'MaterialTheme.colorScheme.background' in reader
+
+# Browser consent backgrounds the activity: keep the loopback listener active first.
+oauth_guard = (root / "app/src/main/java/com/forgeport/android/oauth/GoogleOAuthCallbackService.kt").read_text()
+assert '.oauth.GoogleOAuthCallbackService' in manifest and 'android:foregroundServiceType="shortService"' in manifest
+assert oauth.index('GoogleOAuthCallbackService.start(context)') < oauth.index('context.startActivity(')
+assert 'finally {\n                GoogleOAuthCallbackService.stop(context)' in oauth
+assert 'ready.await()' in oauth_guard and 'START_NOT_STICKY' in oauth_guard
+assert 'override fun onTimeout(startId: Int)' in oauth_guard and '165_000' in oauth_guard
+print('Google OAuth foreground callback lifecycle bindings: OK')
+
+# Normalize Space metadata only after copying to the temporary HF Git checkout.
+assert 'if (cloneUrl.startsWith("https://huggingface.co/spaces/")) normalizeHuggingFaceReadme(repoDir)' in repo
+assert repo.index('copyTree(source, repoDir)') < repo.index('normalizeHuggingFaceReadme(repoDir)') < repo.index('git.add().addFilepattern(".")')
+assert (root / 'app/src/test/java/com/forgeport/android/repo/HuggingFaceMetadataTest.kt').is_file()
+print('Hugging Face staged README metadata normalization: OK')
