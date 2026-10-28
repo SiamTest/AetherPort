@@ -1,3 +1,19 @@
+## Android 3.0.27 / Windows 3.0.27 — Hugging Face Space metadata compatibility
+
+- Normalize the known rejected decorative stars ✦ and ✧ to the supported emoji ✨ only in the top-level emoji field of a staged Space README's closed YAML metadata block.
+- Preserve the source ZIP, GitHub uploads, nested READMEs, body text, valid emojis, quotes, comments, UTF-8 BOM and line endings. This is a narrow compatibility fix, not a general YAML or emoji validator.
+- Strip ANSI terminal formatting and hyperlinks from Windows Git errors before truncating and redacting tokens, so server rejection messages remain readable.
+- Add local Git publish checks for Hugging Face versus GitHub, repeat-publish idempotence and unchanged ZIP bytes, plus metadata and error-cleanup regression coverage.
+- Reference: https://huggingface.co/docs/hub/en/spaces-config-reference (Space configuration lives in root README.md YAML; the emoji field accepts emoji characters).
+
+## Android 3.0.26 — Keep Google OAuth callbacks active in Chrome
+
+- Start a non-exported foreground short service and wait for readiness before opening the Google consent browser, so Android does not freeze the local callback listener as cached activity work.
+- Stop the service on callback, denial, browser-launch failure, timeout or cancellation; retain a safety stop below Android’s three-minute service limit and never restart a stale sign-in.
+- Bound the callback wait to 150 seconds, allow queued browser connections, skip idle preconnections, and consume bounded HTTP headers before sending the completion response.
+- Preserve Desktop credentials.json, PKCE, state validation, encrypted token reuse/refresh and portable token.pickle export. Windows remains 3.0.26.
+- Add real-socket regression checks for idle preconnections, full browser responses and incomplete-request timeouts. A physical Android/Chrome sign-in still needs device verification.
+
 ## Android 3.0.25 / Windows 3.0.26 — Hugging Face hidden-email fallback
 
 - Handle the observed fine-grained whoami response that identifies the token owner while omitting both email and emailVerified.
